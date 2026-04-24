@@ -14,7 +14,7 @@ This file provides guidance to Claude Code / Claude Agent SDK clients when worki
 - 聽眾不一定每天寫程式，技術細節需「概念為主、關鍵程式片段佐證」，避免逐行解釋
 - 期望聽眾課後能自行判斷：自己的研究／教學情境，該選 RAG、Tool Use 還是 MCP
 
-## 課程結構（180 min）
+## 課程結構（總 220 min，含 10 min 休息）
 
 | 段落 | 時間 | 主題 | 主要檔案 | 狀態 |
 |------|------|------|---------|------|
@@ -99,7 +99,8 @@ Workshop 現場可連 NCHU vLLM 端點（`infra/serve-*.sh` 提供 Gemma 4 / Qwe
 
 - 簡報：`0X-主題.pptx`，直接放在 repo 根目錄
 - 動畫：`主題-animation.html`，直接放在 repo 根目錄
-- 教材 md：`0X-主題.md`（Segment 4、5 採 md 不採 pptx；需要時可後續轉投影片）
+- 教材 md：`0X-主題.md`（Segment 4、5 以 md 為主；Segment 4 另有配套 pptx 作為現場講師開場使用）
+- 投影片生成腳本：`tools/gen-0X-slides.py`（用 python-pptx 程式化生成，確保視覺風格統一且可重現）
 - 草稿 / 筆記：`course-notes-*.md`
 - 可跑 code：集中在 `mini-project/` 子目錄，保留階層結構；`setup.sh` 位於其 root
 - 工作坊主辦端 infra：集中在 `infra/`，學員端不需要碰
@@ -110,10 +111,13 @@ Workshop 現場可連 NCHU vLLM 端點（`infra/serve-*.sh` 提供 Gemma 4 / Qwe
 repo root/
 ├── 01–03 *.pptx / *-animation.html    講課投影片與動畫（學員端）
 ├── 04-hands-on-lab.md                 第四段動手做 landing page（現場實作主場）
+├── 04-hands-on-lab.pptx               第四段講師開場投影片（12 張，由 tools/ 產出）
 ├── 05-practical-considerations.md     第五段實務考量收尾
-├── haiku-alignment-*                  Haiku 優化報告（第四段 §1 引用）
+├── haiku-alignment-*                  Haiku 優化報告（第五段 §4 引用）
 ├── sonnet-*-example.*                 Sonnet 實例（第三段引用）
 ├── course-notes-draft.md              個人筆記草稿
+├── tools/                             投影片生成腳本
+│   └── gen-04-slides.py               uv run --with python-pptx 產出 04-hands-on-lab.pptx
 ├── mini-project/                      學員端 hands-on 可跑 code
 │   ├── backend-node/                  Express + LLM client + MCP client
 │   ├── mcp-server-py/                 4 支 FastMCP 工具（hello/teachers/weather/arxiv）
@@ -129,4 +133,15 @@ repo root/
 
 ## 相關 repo
 
-- 原始應用：[UDICatNCHU/claude-mcp-project](https://github.com/UDICatNCHU/claude-mcp-project) — 興大 AI 學伴（Claude + MCP 的 web chat 介面，33 個 MCP 工具）
+- 原始應用：[UDICatNCHU/claude-mcp-project](https://github.com/UDICatNCHU/claude-mcp-project) — 興大 AI 學伴（Claude + MCP 的 web chat 介面，~239 個 MCP 工具）
+
+## 其他 CLAUDE.md（本機同步維護參考）
+
+公開讀者可忽略本節。若您是 NCHU 內部開發者，本 repo 通常是 `AiLearningMate/` 底下的 sibling，本機會有另外兩份 CLAUDE.md 各司其職：
+
+| 路徑 | 焦點 |
+|------|------|
+| `../CLAUDE.md` | 本機 root：整個 AiLearningMate monorepo 的總覽（claude-mcp-project + library + 本 repo + mini-project + qwen-coding 的兄弟關係）|
+| `../library/CLAUDE.md` | `library/` sub-project 專屬：Python / uv / FastMCP 環境與工具分類，獨立於本 workshop 維護 |
+
+三份 CLAUDE.md 各自作為其所在目錄的 Claude Code context；不互相衝突，只是工作 scope 不同。本機工作時可三份並讀，**公開發佈只有本檔**。
