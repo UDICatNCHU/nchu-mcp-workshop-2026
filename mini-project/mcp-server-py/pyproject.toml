@@ -1,0 +1,9 @@
+[project]
+name = "mini-mcp-server"
+version = "0.1.0"
+description = "Teaching example: minimal FastMCP stdio server"
+requires-python = ">=3.11"
+dependencies = [
+    "httpx>=0.28.1",
+    "mcp[cli]>=1.8.0",
+]

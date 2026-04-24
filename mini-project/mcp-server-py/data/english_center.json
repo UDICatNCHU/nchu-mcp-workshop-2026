@@ -1,0 +1,15 @@
+{
+  "name": "中興大學英語自學暨檢定中心",
+  "operating_hours": "週一至週五 09:00–17:00，週末休館",
+  "location": "圖書館 3 樓 302 室",
+  "facilities": [
+    "閱讀桌 20 席",
+    "EnglishScore 測驗站",
+    "MyET 英語口說軟體"
+  ],
+  "contact": {
+    "email": "english@nchu.edu.tw",
+    "phone": "04-2284-0000 #1234"
+  },
+  "notes": "歡迎全校師生免費使用；借用耳機請攜帶學生證"
+}

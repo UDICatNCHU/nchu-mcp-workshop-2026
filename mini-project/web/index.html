@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="zh-TW">
+<head>
+  <meta charset="utf-8">
+  <title>Mini AI Assistant</title>
+  <style>
+    body { max-width: 720px; margin: 2rem auto; padding: 0 1rem;
+           font-family: system-ui, -apple-system, "PingFang TC", sans-serif; }
+    h1 { font-size: 1.2rem; color: #333; }
+    #log { border: 1px solid #ddd; border-radius: 8px; padding: 1rem;
+           min-height: 300px; margin-bottom: 1rem; background: #fafafa; }
+    .msg { margin: 0.5rem 0; padding: 0.5rem 0.75rem; border-radius: 6px;
+           white-space: pre-wrap; word-break: break-word; }
+    .user { background: #dbeafe; align-self: flex-end; }
+    .assistant { background: #fff; border: 1px solid #e5e7eb; }
+    .meta { font-size: 0.75rem; color: #888; margin-bottom: 0.2rem; }
+    textarea { width: 100%; min-height: 70px; padding: 0.5rem;
+               border: 1px solid #ccc; border-radius: 6px; font: inherit; box-sizing: border-box; }
+    button { margin-top: 0.5rem; padding: 0.5rem 1.2rem; font-size: 1rem;
+             border: 0; border-radius: 6px; background: #2563eb; color: white; cursor: pointer; }
+    button:disabled { background: #9ca3af; cursor: wait; }
+  </style>
+</head>
+<body>
+  <h1>🎓 Mini AI Assistant ＆ NCHU demo</h1>
+  <div id="log"></div>
+  <textarea id="msg" placeholder="試試：英文中心幾點開門？"></textarea>
+  <button id="send">送出</button>
+
+<script>
+  const log = document.getElementById('log');
+  const msgEl = document.getElementById('msg');
+  const sendBtn = document.getElementById('send');
+  const messages = [];  // 保留對話歷史（in-memory，重新整理就清空）
+
+  function render(role, text) {
+    const div = document.createElement('div');
+    div.className = 'msg ' + role;
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    meta.textContent = role === 'user' ? '你' : 'AI';
+    div.appendChild(meta);
+    div.appendChild(document.createTextNode(text));
+    log.appendChild(div);
+    log.scrollTop = log.scrollHeight;
+  }
+
+  async function send() {
+    const text = msgEl.value.trim();
+    if (!text) return;
+    messages.push({ role: 'user', content: text });
+    render('user', text);
+    msgEl.value = '';
+    sendBtn.disabled = true;
+
+    try {
+      const res = await fetch('/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Request failed');
+
+      // 伺服器回傳的是完整 messages（含 assistant 原始 blocks），更新本地副本
+      messages.length = 0;
+      messages.push(...data.messages);
+
+      render('assistant', data.reply);
+    } catch (e) {
+      render('assistant', '[錯誤] ' + e.message);
+    } finally {
+      sendBtn.disabled = false;
+      msgEl.focus();
+    }
+  }
+
+  sendBtn.addEventListener('click', send);
+  msgEl.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) send();
+  });
+</script>
+</body>
+</html>

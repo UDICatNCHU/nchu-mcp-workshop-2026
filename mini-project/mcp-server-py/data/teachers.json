@@ -1,0 +1,92 @@
+{
+  "metadata": {
+    "source": "NCHU 資工系 (mock data for workshop demo)",
+    "updated": "2026-04-24"
+  },
+  "teachers": [
+    {
+      "name": "張小明",
+      "title": "教授",
+      "areas": ["機器學習", "電腦視覺", "深度學習"],
+      "email": "ming@nchu.edu.tw",
+      "office": "資電 601"
+    },
+    {
+      "name": "李小華",
+      "title": "副教授",
+      "areas": ["自然語言處理", "大型語言模型"],
+      "email": "hua@nchu.edu.tw",
+      "office": "資電 523"
+    },
+    {
+      "name": "王大強",
+      "title": "教授",
+      "areas": ["資料庫", "分散式系統"],
+      "email": "strong@nchu.edu.tw",
+      "office": "資電 405"
+    },
+    {
+      "name": "陳淑芬",
+      "title": "助理教授",
+      "areas": ["計算機網路", "資訊安全"],
+      "email": "fen@nchu.edu.tw",
+      "office": "資電 302"
+    },
+    {
+      "name": "林志偉",
+      "title": "教授",
+      "areas": ["電腦視覺", "影像處理"],
+      "email": "wei@nchu.edu.tw",
+      "office": "資電 604"
+    },
+    {
+      "name": "黃雅婷",
+      "title": "副教授",
+      "areas": ["自然語言處理", "對話系統", "大型語言模型"],
+      "email": "ting@nchu.edu.tw",
+      "office": "資電 525"
+    },
+    {
+      "name": "吳俊傑",
+      "title": "教授",
+      "areas": ["機器學習", "深度學習", "強化學習"],
+      "email": "chun@nchu.edu.tw",
+      "office": "資電 607"
+    },
+    {
+      "name": "蔡明玲",
+      "title": "助理教授",
+      "areas": ["人機互動", "VR/AR"],
+      "email": "ling@nchu.edu.tw",
+      "office": "資電 310"
+    },
+    {
+      "name": "鄭國豪",
+      "title": "教授",
+      "areas": ["作業系統", "編譯器"],
+      "email": "hao@nchu.edu.tw",
+      "office": "資電 410"
+    },
+    {
+      "name": "謝佳蓉",
+      "title": "副教授",
+      "areas": ["機器學習", "資料探勘"],
+      "email": "rong@nchu.edu.tw",
+      "office": "資電 527"
+    },
+    {
+      "name": "洪志明",
+      "title": "教授",
+      "areas": ["電腦視覺", "機器學習", "自駕車"],
+      "email": "ming2@nchu.edu.tw",
+      "office": "資電 610"
+    },
+    {
+      "name": "周美惠",
+      "title": "助理教授",
+      "areas": ["大型語言模型", "RAG", "問答系統"],
+      "email": "hui@nchu.edu.tw",
+      "office": "資電 311"
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "hello_tool": {
+      "command": "uv",
+      "args": ["--directory", "mcp-server-py", "run", "python", "hello_tool.py"]
+    },
+    "teachers_tool": {
+      "command": "uv",
+      "args": ["--directory", "mcp-server-py", "run", "python", "teachers_tool.py"]
+    },
+    "weather_tool": {
+      "command": "uv",
+      "args": ["--directory", "mcp-server-py", "run", "python", "weather_tool.py"]
+    }
+  }
+}

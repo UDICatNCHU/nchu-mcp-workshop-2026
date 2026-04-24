@@ -1,0 +1,17 @@
+{
+  "name": "mini-backend",
+  "version": "1.0.0",
+  "description": "Teaching example: minimal Express + Claude + MCP client",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.27.0",
+    "@modelcontextprotocol/sdk": "^1.17.0",
+    "dotenv": "^16.3.0",
+    "express": "^4.19.0",
+    "openai": "^4.104.0"
+  }
+}
