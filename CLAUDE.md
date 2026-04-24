@@ -22,8 +22,8 @@ This file provides guidance to Claude Code / Claude Agent SDK clients when worki
 | 第二段 | 50 min | **How MCP Works** | `02-how-mcp-works.pptx`、`mcp-architecture-animation.html`、`mcp-connection-animation.html` | 🔨 初稿完成 |
 | 休息 | 10 min | | | |
 | 第三段 | 50 min | **Agentic Tool Loop** | `03-agentic-tool-loop.pptx`、`sonnet-flow-running-example.html`、`sonnet-running-example.pptx` | 🔨 初稿完成 |
-| 第四段 | 40 min | **實務考量** | `04-practical-considerations.pptx`（待新建）、`haiku-alignment-report.pptx`、`haiku-alignment-animation.html` | ⬜ 待開始 |
-| Q&A | 20 min | 問答 + 動手指引 | `05-resource-pack.md`（待新建） | ⬜ 待開始 |
+| 第四段 | 40 min | **實務考量** | `04-practical-considerations.md`、`haiku-alignment-report.pptx`、`haiku-alignment-animation.html` | ✅ 完成（md 版本） |
+| Q&A | 20 min | 問答 + 動手指引 | `05-hands-on-lab.md` + `mini-project/` + `infra/` | ✅ 完成 |
 
 ## 各段內容規劃
 
@@ -54,13 +54,27 @@ This file provides guidance to Claude Code / Claude Agent SDK clients when worki
 - 搭配素材：`sonnet-flow-running-example.html`、`sonnet-running-example.pptx`
 
 ### 第四段：實務考量（40 min）
-- 多模型 fallback 策略（Claude → Gemini → ChatGPT → Ollama）
-- Haiku alignment 優化（few-shot + 格式規範，省 73% 成本）
-- 33 個 MCP 工具的分類管理與 config 系統
-- 搭配素材：`haiku-alignment-report.pptx`、`haiku-alignment-animation.html`
+
+現版 `04-practical-considerations.md` 結構為「四大支柱」，每塊 10 分鐘：
+
+- **§1 成本**：10 人 3 小時 workshop 的 Claude Haiku/Sonnet 真實帳、prompt caching、失控情境、Anthropic Console 護欄、本地 vs 雲端長期帳
+- **§2 模型選擇**：Task-complexity gradient；引 `mini-project/docs/benchmarks/2026-04-24-claude-vs-gemma4.md` 佐證本地 Gemma 4 31B 在 tool-calling 任務打平 Claude；multi-provider adapter 設計
+- **§3 Tool-calling 品質陷阱**：docstring 設計、邊界防禦（limit 參數）、錯誤當資料不當 exception、Gemma 4 thinking marker strip
+- **§4 Scale 質變**：mini-project 3 tools → AiLearningMate 239 tools 的五個質變（context 爆量 / 語意混淆 / 多輪 context / 安全 / observability）
+
+搭配素材：`haiku-alignment-report.pptx`、`haiku-alignment-animation.html`（原預計講 Haiku alignment，現整併進 §1 成本討論）
 
 ### Q&A + 動手指引（20 min）
-- 課後資源包：環境建置步驟、推薦閱讀、簡易 MCP Server 範例
+
+現版 `05-hands-on-lab.md` 作為 landing page，指向可跑的 `mini-project/`：
+
+- 5 分鐘快速入門（clone → setup.sh → npm start → 瀏覽器問答）
+- 三關 Lab 路徑：
+    - **L1**：換 JSON 做你領域的助理（課堂 40 分）
+    - **L2**：加一支有參數的搜尋工具（課後自修）
+    - **L3**：呼叫外部 API（課後自修）
+- Workshop 現場：連 NCHU vLLM 端點（`infra/serve-*.sh` 提供的 Gemma 4 / Qwen Coder）
+- 架構快速回顧（ASCII pipeline）、常見卡點、延伸閱讀
 
 ## 教材風格規範
 
@@ -75,7 +89,33 @@ This file provides guidance to Claude Code / Claude Agent SDK clients when worki
 
 - 簡報：`0X-主題.pptx`，直接放在 repo 根目錄
 - 動畫：`主題-animation.html`，直接放在 repo 根目錄
+- 教材 md：`0X-主題.md`（Segment 4、5 採 md 不採 pptx；需要時可後續轉投影片）
 - 草稿 / 筆記：`course-notes-*.md`
+- 可跑 code：集中在 `mini-project/` 子目錄，保留階層結構；`setup.sh` 位於其 root
+- 工作坊主辦端 infra：集中在 `infra/`，學員端不需要碰
+
+## Repo 結構
+
+```
+repo root/
+├── 01–03 *.pptx / *-animation.html    講課投影片與動畫（學員端）
+├── 04-practical-considerations.md     第四段講義
+├── 05-hands-on-lab.md                 第五段動手指引 landing page
+├── haiku-alignment-*                  Haiku 優化報告（第四段 §1 引用）
+├── sonnet-*-example.*                 Sonnet 實例（第三段引用）
+├── course-notes-draft.md              個人筆記草稿
+├── mini-project/                      學員端 hands-on 可跑 code
+│   ├── backend-node/                  Express + LLM client + MCP client
+│   ├── mcp-server-py/                 4 支 FastMCP 工具（hello/teachers/weather/arxiv）
+│   ├── web/                           極簡 vanilla JS chat UI
+│   ├── scripts/                       Claude vs 本地模型 對比腳本
+│   ├── docs/labs/                     L1–L3 Lab 手冊
+│   ├── docs/benchmarks/               實驗記錄（2026-04-24）
+│   └── setup.sh                       環境預檢
+└── infra/                             工作坊主辦端 vLLM 啟動
+    ├── serve-gemma.sh                 Gemma 4 31B 端點（port 8000）
+    └── serve-qwen.sh                  Qwen 2.5-Coder 32B 端點（port 8001）
+```
 
 ## 相關 repo
 
