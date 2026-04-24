@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原始 Sonnet 流程 — Running Example 互動式教學動畫</title>
+<style>
+  :root {
+    --bg-primary: #ffffff;
+    --bg-secondary: #f5f4f0;
+    --bg-tertiary: #eae8e2;
+    --text-primary: #1a1a1a;
+    --text-secondary: #6b6b6b;
+    --text-info: #185FA5;
+    --border: rgba(0,0,0,0.12);
+    --border-strong: rgba(0,0,0,0.22);
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, monospace;
+    --color-default: #E6F1FB;
+    --color-active: #FAEEDA;
+    --color-compare: #FAECE7;
+    --color-swap: #FBEAF0;
+    --color-sorted: #E1F5EE;
+    --color-pivot: #EEEDFE;
+    --text-on-default: #0C447C;
+    --text-on-active: #633806;
+    --text-on-compare: #712B13;
+    --text-on-swap: #72243E;
+    --text-on-sorted: #085041;
+    --text-on-pivot: #3C3489;
+    /* Custom for this animation */
+    --node-user: #E6F1FB;
+    --node-controller: #FAEEDA;
+    --node-mcp: #EEEDFE;
+    --node-client: #FBEAF0;
+    --node-prompt: #f0f0f0;
+    --node-api: #FAECE7;
+    --node-stream: #E1F5EE;
+    --node-tool: #FFF3E0;
+    --msg-user: #E6F1FB;
+    --msg-system: #f5f0ff;
+    --msg-assistant: #E1F5EE;
+    --msg-tool-call: #FFF3E0;
+    --msg-tool-result: #FAEEDA;
+    --arrow-color: #185FA5;
+    --iteration-bg: #fafafa;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg-primary: #1a1a1a;
+      --bg-secondary: #2a2a28;
+      --bg-tertiary: #353533;
+      --text-primary: #e8e6de;
+      --text-secondary: #9c9a92;
+      --text-info: #85B7EB;
+      --border: rgba(255,255,255,0.12);
+      --border-strong: rgba(255,255,255,0.22);
+      --node-user: #0C447C;
+      --node-controller: #633806;
+      --node-mcp: #3C3489;
+      --node-client: #72243E;
+      --node-prompt: #353533;
+      --node-api: #712B13;
+      --node-stream: #085041;
+      --node-tool: #5C3D00;
+      --msg-user: #0C447C;
+      --msg-system: #2a2548;
+      --msg-assistant: #085041;
+      --msg-tool-call: #5C3D00;
+      --msg-tool-result: #633806;
+      --arrow-color: #85B7EB;
+      --iteration-bg: #252525;
+      --text-on-default: #85B7EB;
+      --text-on-active: #FAC775;
+      --text-on-compare: #F0997B;
+      --text-on-swap: #ED93B1;
+      --text-on-sorted: #5DCAA5;
+      --text-on-pivot: #AFA9EC;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: var(--font-sans);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    padding: 2rem;
+    line-height: 1.6;
+  }
+  .container { max-width: 960px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 500; margin-bottom: 4px; }
+  .subtitle { font-size: 14px; color: var(--text-secondary); margin-bottom: 1.5rem; }
+  .controls {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 1rem; flex-wrap: wrap;
+  }
+  .controls button {
+    padding: 6px 14px; border-radius: var(--radius-md);
+    border: 1px solid var(--border-strong); background: transparent;
+    color: var(--text-primary); cursor: pointer; font-size: 13px;
+    font-family: var(--font-sans); transition: background .15s, transform .1s;
+    white-space: nowrap;
+  }
+  .controls button:hover { background: var(--bg-secondary); }
+  .controls button:active { transform: scale(0.97); }
+  .controls button:disabled { opacity: 0.35; cursor: default; }
+  .speed-ctrl {
+    display: flex; align-items: center; gap: 6px;
+    margin-left: 8px; font-size: 12px; color: var(--text-secondary);
+  }
+  .speed-ctrl input[type=range] { width: 80px; accent-color: var(--text-info); }
+  .step-counter {
+    font-size: 12px; color: var(--text-secondary);
+    margin-left: auto; white-space: nowrap;
+  }
+  .step-desc {
+    font-size: 14px; color: var(--text-secondary); line-height: 1.65;
+    min-height: 52px; margin-bottom: 1.2rem;
+    padding: 10px 14px;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-md);
+    border-left: 3px solid var(--text-info);
+  }
+  .step-desc code {
+    font-family: var(--font-mono); background: var(--bg-tertiary);
+    padding: 1px 5px; border-radius: 4px; font-size: 13px;
+  }
+  .step-desc strong { font-weight: 600; color: var(--text-primary); }
+
+  /* === VISUAL AREA === */
+  .visual { margin-bottom: 1.5rem; }
+
+  /* Running example input display */
+  .example-input {
+    background: var(--bg-secondary);
+    border-radius: var(--radius-lg);
+    padding: 14px 18px;
+    margin-bottom: 16px;
+    display: flex; align-items: center; gap: 12px;
+    font-size: 14px;
+  }
+  .example-input .label {
+    font-weight: 500; color: var(--text-info);
+    white-space: nowrap;
+  }
+  .example-input .query {
+    font-family: var(--font-mono); font-size: 13px;
+    color: var(--text-primary);
+    background: var(--bg-primary);
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+  }
+
+  /* Architecture flow */
+  .arch-flow {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    margin-bottom: 20px;
+    overflow-x: auto;
+    padding: 8px 0;
+  }
+  .arch-node {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 10px 14px;
+    border-radius: var(--radius-md);
+    border: 2px solid var(--border);
+    min-width: 110px;
+    text-align: center;
+    transition: border-color 0.4s, background 0.4s, box-shadow 0.4s;
+    position: relative;
+    font-size: 12px;
+  }
+  .arch-node .node-label {
+    font-weight: 600; font-size: 11px;
+    margin-bottom: 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  .arch-node .node-detail {
+    font-size: 11px; color: var(--text-secondary);
+    font-family: var(--font-mono);
+  }
+  .arch-node.active {
+    border-color: var(--arrow-color);
+    box-shadow: 0 0 0 3px rgba(24,95,165,0.15);
+    z-index: 2;
+  }
+  .arch-node.done {
+    opacity: 0.55;
+  }
+  .arch-arrow {
+    display: flex; align-items: center;
+    font-size: 18px; color: var(--text-secondary);
+    padding: 0 4px;
+    transition: color 0.3s;
+  }
+  .arch-arrow.active { color: var(--arrow-color); font-weight: bold; }
+
+  /* Messages panel */
+  .messages-panel {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+  .messages-header {
+    background: var(--bg-secondary);
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .messages-header .iteration-badge {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: var(--text-info);
+    color: white;
+  }
+  .messages-body {
+    padding: 12px;
+    max-height: 440px;
+    overflow-y: auto;
+    background: var(--bg-primary);
+  }
+  .msg {
+    padding: 8px 12px;
+    border-radius: var(--radius-md);
+    margin-bottom: 8px;
+    font-size: 13px;
+    line-height: 1.55;
+    border: 1px solid var(--border);
+    transition: opacity 0.3s, transform 0.3s;
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  .msg.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .msg.dimmed {
+    opacity: 0.4;
+  }
+  .msg .msg-role {
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+  }
+  .msg .msg-content {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .msg.role-system { background: var(--msg-system); }
+  .msg.role-user { background: var(--msg-user); }
+  .msg.role-assistant { background: var(--msg-assistant); }
+  .msg.role-tool-call { background: var(--msg-tool-call); }
+  .msg.role-tool-result { background: var(--msg-tool-result); }
+
+  .msg .msg-role.system { color: #7c3aed; }
+  .msg .msg-role.user { color: var(--text-on-default); }
+  .msg .msg-role.assistant { color: var(--text-on-sorted); }
+  .msg .msg-role.tool-call { color: #e65100; }
+  .msg .msg-role.tool-result { color: var(--text-on-active); }
+
+  /* System prompt detail (expandable) */
+  .prompt-detail {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 10px 14px;
+    margin-bottom: 16px;
+    font-size: 13px;
+    transition: opacity 0.4s;
+  }
+  .prompt-detail .prompt-title {
+    font-weight: 600;
+    font-size: 12px;
+    color: var(--text-info);
+    margin-bottom: 6px;
+  }
+  .prompt-detail .prompt-content {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-secondary);
+    white-space: pre-wrap;
+    max-height: 120px;
+    overflow-y: auto;
+    line-height: 1.6;
+  }
+  .prompt-detail.hidden { display: none; }
+
+  /* Iteration indicator */
+  .iteration-bar {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 12px;
+    align-items: center;
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+  .iteration-dot {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 600;
+    transition: background 0.3s, border-color 0.3s, color 0.3s;
+    color: var(--text-secondary);
+  }
+  .iteration-dot.active {
+    border-color: var(--text-info);
+    background: var(--text-info);
+    color: white;
+  }
+  .iteration-dot.done {
+    border-color: var(--text-on-sorted);
+    background: var(--color-sorted);
+    color: var(--text-on-sorted);
+  }
+  .iteration-dot.future {
+    opacity: 0.35;
+  }
+
+  /* Layout: two columns on wide */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  @media (max-width: 720px) {
+    .two-col { grid-template-columns: 1fr; }
+  }
+
+  /* SSE stream display */
+  .sse-stream {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 10px 14px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-secondary);
+    max-height: 100px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    line-height: 1.6;
+    transition: opacity 0.4s;
+  }
+  .sse-stream.hidden { display: none; }
+  .sse-stream .sse-type { color: var(--text-info); font-weight: 600; }
+
+  /* Legend */
+  .legend {
+    display: flex; gap: 14px; flex-wrap: wrap;
+    padding-top: 1rem; border-top: 1px solid var(--border);
+  }
+  .legend-item {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 12px; color: var(--text-secondary);
+  }
+  .legend-swatch {
+    width: 14px; height: 14px; border-radius: 3px;
+    border: 1px solid var(--border);
+  }
+
+  /* Scenario selector */
+  .scenario-row {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 12px; font-size: 13px; color: var(--text-secondary);
+    flex-wrap: wrap;
+  }
+  .scenario-row select {
+    padding: 4px 8px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: 13px;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>原始 Sonnet 流程 — Running Example</h1>
+  <p class="subtitle">以一個具體查詢為例，逐步走過 ChatController → raw-mcp-client → Claude Sonnet API 的完整請求處理流程</p>
+
+  <!-- Scenario selector -->
+  <div class="scenario-row">
+    <span>情境選擇：</span>
+    <select id="scenarioSelect" onchange="onScenarioChange()">
+      <option value="0">「中興大學圖書館有什麼新書？」（需要工具 → 2 輪迭代）</option>
+      <option value="1">「你好，請問你是誰？」（不需要工具 → 1 輪直接回覆）</option>
+    </select>
+  </div>
+
+  <!-- Playback controls -->
+  <div class="controls">
+    <button id="prevBtn" onclick="prev()" disabled>&#8592; 上一步</button>
+    <button id="nextBtn" onclick="next()">下一步 &#8594;</button>
+    <button id="playBtn" onclick="togglePlay()">&#9654; 自動播放</button>
+    <div class="speed-ctrl">
+      <span>速度</span>
+      <input type="range" min="0.5" max="3" value="1" step="0.5"
+             id="speedSlider" oninput="updateSpeed(this.value)">
+      <span id="speedVal">1x</span>
+    </div>
+    <button onclick="reset()">重置</button>
+    <span class="step-counter" id="stepCounter">步驟 0 / 0</span>
+  </div>
+
+  <div class="step-desc" id="desc">點擊「下一步 →」開始動畫，跟著一個真實查詢走過原始 Sonnet 流程的每一步。</div>
+
+  <!-- Visual area -->
+  <div class="visual" id="visual">
+    <!-- Running example input -->
+    <div class="example-input" id="exampleInput">
+      <span class="label">Running Example：</span>
+      <span class="query" id="queryDisplay">「中興大學圖書館有什麼新書？」</span>
+    </div>
+
+    <!-- Architecture flow -->
+    <div class="arch-flow" id="archFlow"></div>
+
+    <!-- System prompt detail -->
+    <div class="prompt-detail hidden" id="promptDetail">
+      <div class="prompt-title">System Prompt 內容</div>
+      <div class="prompt-content" id="promptContent"></div>
+    </div>
+
+    <!-- Iteration bar -->
+    <div class="iteration-bar" id="iterationBar">
+      <span>Agentic Loop 迭代：</span>
+    </div>
+
+    <!-- Messages panel -->
+    <div class="messages-panel">
+      <div class="messages-header">
+        <span>API 訊息序列 (messages array)</span>
+        <span class="iteration-badge" id="iterBadge">尚未開始</span>
+      </div>
+      <div class="messages-body" id="messagesBody"></div>
+    </div>
+
+    <!-- SSE stream -->
+    <div class="sse-stream hidden" id="sseStream"></div>
+  </div>
+
+  <!-- Legend -->
+  <div class="legend">
+    <div class="legend-item">
+      <div class="legend-swatch" style="background:var(--msg-system)"></div>System
+    </div>
+    <div class="legend-item">
+      <div class="legend-swatch" style="background:var(--msg-user)"></div>User
+    </div>
+    <div class="legend-item">
+      <div class="legend-swatch" style="background:var(--msg-assistant)"></div>Assistant
+    </div>
+    <div class="legend-item">
+      <div class="legend-swatch" style="background:var(--msg-tool-call)"></div>Tool Call
+    </div>
+    <div class="legend-item">
+      <div class="legend-swatch" style="background:var(--msg-tool-result)"></div>Tool Result
+    </div>
+  </div>
+</div>
+
+<script>
+// === STEPPER ENGINE ===
+let steps = [];
+let cur = -1;
+let playing = false;
+let timer = null;
+let speed = 1;
+
+function next() {
+  if (cur >= steps.length - 1) return;
+  cur++;
+  renderStep(cur);
+  updateControls();
+}
+function prev() {
+  if (cur < 0) return;
+  cur--;
+  if (cur >= 0) renderStep(cur);
+  else renderInitial();
+  updateControls();
+}
+function togglePlay() {
+  if (playing) { stopPlay(); return; }
+  if (cur >= steps.length - 1) { cur = -1; renderInitial(); }
+  playing = true;
+  document.getElementById('playBtn').textContent = '⏸ 暫停';
+  timer = setInterval(() => {
+    if (cur >= steps.length - 1) { stopPlay(); return; }
+    next();
+  }, 1400 / speed);
+}
+function stopPlay() {
+  playing = false;
+  clearInterval(timer); timer = null;
+  document.getElementById('playBtn').textContent = '▶ 自動播放';
+}
+function updateSpeed(v) {
+  speed = parseFloat(v);
+  document.getElementById('speedVal').textContent = speed + 'x';
+  if (playing) { stopPlay(); togglePlay(); }
+}
+function reset() {
+  stopPlay();
+  cur = -1;
+  renderInitial();
+  updateControls();
+}
+function updateControls() {
+  document.getElementById('prevBtn').disabled = cur < 0;
+  document.getElementById('nextBtn').disabled = cur >= steps.length - 1;
+  document.getElementById('stepCounter').textContent = '步驟 ' + (cur + 1) + ' / ' + steps.length;
+}
+
+// === ARCHITECTURE NODES ===
+const archNodes = [
+  { id: 'user', label: '使用者', detail: 'Browser', color: 'var(--node-user)' },
+  { id: 'controller', label: 'ChatController', detail: 'controllers/', color: 'var(--node-controller)' },
+  { id: 'mcp-client', label: 'raw-mcp-client', detail: '.js (~910 行)', color: 'var(--node-mcp)' },
+  { id: 'claude-client', label: 'ClaudeClient', detail: 'claude-client.js', color: 'var(--node-client)' },
+  { id: 'api', label: 'Claude Sonnet', detail: 'API', color: 'var(--node-api)' },
+  { id: 'tools', label: 'MCP Tools', detail: 'mcp/*.js', color: 'var(--node-tool)' },
+  { id: 'stream', label: 'SSE 串流', detail: '回覆給用戶', color: 'var(--node-stream)' },
+];
+
+function renderArchFlow(activeId, doneIds) {
+  const el = document.getElementById('archFlow');
+  el.innerHTML = '';
+  archNodes.forEach((n, i) => {
+    const div = document.createElement('div');
+    div.className = 'arch-node';
+    if (n.id === activeId) div.classList.add('active');
+    if (doneIds && doneIds.includes(n.id)) div.classList.add('done');
+    div.style.background = n.color;
+    div.innerHTML = `<div class="node-label">${n.label}</div><div class="node-detail">${n.detail}</div>`;
+    el.appendChild(div);
+    if (i < archNodes.length - 1) {
+      const arrow = document.createElement('div');
+      arrow.className = 'arch-arrow';
+      if (doneIds && doneIds.includes(n.id)) arrow.classList.add('active');
+      arrow.textContent = '→';
+      el.appendChild(arrow);
+    }
+  });
+}
+
+function renderIterationBar(totalIter, currentIter, maxIter) {
+  const el = document.getElementById('iterationBar');
+  el.innerHTML = '<span>Agentic Loop 迭代：</span>';
+  for (let i = 1; i <= maxIter; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'iteration-dot';
+    if (i < currentIter) dot.classList.add('done');
+    else if (i === currentIter) dot.classList.add('active');
+    else dot.classList.add('future');
+    dot.textContent = i;
+    el.appendChild(dot);
+  }
+}
+
+// === MESSAGE RENDERING ===
+let visibleMessages = [];
+
+function addMessage(role, roleLabel, content, highlight) {
+  visibleMessages.push({ role, roleLabel, content, highlight });
+  renderMessages();
+}
+
+function renderMessages() {
+  const body = document.getElementById('messagesBody');
+  body.innerHTML = '';
+  visibleMessages.forEach((m, i) => {
+    const div = document.createElement('div');
+    div.className = `msg role-${m.role}`;
+    if (m.highlight === false) div.classList.add('dimmed');
+    div.innerHTML = `<div class="msg-role ${m.role}">${m.roleLabel}</div><div class="msg-content">${escHtml(m.content)}</div>`;
+    body.appendChild(div);
+    // Trigger animation
+    requestAnimationFrame(() => { requestAnimationFrame(() => { div.classList.add('visible'); }); });
+  });
+  body.scrollTop = body.scrollHeight;
+}
+
+function setMessagesFromState(msgs) {
+  visibleMessages = msgs.map(m => ({...m}));
+  renderMessages();
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function showPromptDetail(content) {
+  const el = document.getElementById('promptDetail');
+  el.classList.remove('hidden');
+  document.getElementById('promptContent').textContent = content;
+}
+function hidePromptDetail() {
+  document.getElementById('promptDetail').classList.add('hidden');
+}
+
+function showSSE(content) {
+  const el = document.getElementById('sseStream');
+  el.classList.remove('hidden');
+  el.innerHTML = content;
+}
+function hideSSE() {
+  document.getElementById('sseStream').classList.add('hidden');
+}
+
+function updateIterBadge(text) {
+  document.getElementById('iterBadge').textContent = text;
+}
+
+// === SCENARIOS ===
+const scenarios = [
+  // Scenario 0: needs tool calls
+  {
+    query: '中興大學圖書館有什麼新書？',
+    systemPrompt: `你是中興大學智慧助理「TARA」。
+你可以使用以下 MCP 工具協助回答：
+- search_new_books: 搜尋圖書館新書
+- search_courses: 搜尋課程資訊
+- search_regulations: 搜尋法規
+...（共 30+ 種工具）
+
+請根據使用者的問題，選擇合適的工具取得資訊後回覆。`,
+    controllerInject: `[ChatController 注入]
+- 現在時間：2026-03-30 10:15 (一)
+- 登入狀態：NCHU SSO 已登入
+- user_id: s12345678`,
+    steps: function() {
+      const s = [];
+      // Step 1: User sends query
+      s.push({
+        desc: '<strong>使用者送出查詢</strong>：瀏覽器透過 <code>POST /api/chat/stream</code> 送出訊息，此請求需攜帶 Chat Token（經 Turnstile 驗證）。',
+        activeNode: 'user', doneNodes: [],
+        iteration: 0, maxIter: 7,
+        messages: [],
+        promptVisible: false, sseVisible: false, iterBadgeText: '尚未開始'
+      });
+      // Step 2: ChatController receives
+      s.push({
+        desc: '<strong>ChatController 接收請求</strong>：驗證 Chat Token，解析 JWT 取得登入資訊，然後注入「當前時間」與「登入狀態」到 system prompt 中。',
+        activeNode: 'controller', doneNodes: ['user'],
+        iteration: 0, maxIter: 7,
+        messages: [],
+        promptVisible: true,
+        promptContent: `你是中興大學智慧助理「TARA」。\n你可以使用以下 MCP 工具協助回答：\n- search_new_books: 搜尋圖書館新書\n- search_courses: 搜尋課程資訊\n...（共 30+ 種工具）\n\n[ChatController 注入]\n現在時間：2026-03-30 10:15 (一)\n登入狀態：NCHU SSO 已登入, user_id: s12345678`,
+        sseVisible: false, iterBadgeText: '尚未開始'
+      });
+      // Step 3: raw-mcp-client receives, prepares messages array
+      s.push({
+        desc: '<strong>raw-mcp-client.js 接手</strong>：建立 messages 陣列，設定 <code>maxIterations = 7</code>（最多執行 7 輪 agentic loop），準備進入迭代。',
+        activeNode: 'mcp-client', doneNodes: ['user','controller'],
+        iteration: 0, maxIter: 7,
+        messages: [
+          { role: 'system', roleLabel: 'System Prompt', content: '你是中興大學智慧助理「TARA」...\n[已注入時間 + 登入資訊]', highlight: true },
+          { role: 'user', roleLabel: 'User', content: '中興大學圖書館有什麼新書？', highlight: true },
+        ],
+        promptVisible: false, sseVisible: false, iterBadgeText: '準備中'
+      });
+      // Step 4: Iteration 1 - send to Claude Sonnet
+      s.push({
+        desc: '<strong>第 1 輪迭代</strong>：<code>ClaudeClient</code> 把 messages 送往 Claude Sonnet API。模型分析問題後，決定呼叫 <code>search_new_books</code> 工具。',
+        activeNode: 'claude-client', doneNodes: ['user','controller','mcp-client'],
+        iteration: 1, maxIter: 7,
+        messages: [
+          { role: 'system', roleLabel: 'System Prompt', content: '你是中興大學智慧助理「TARA」...\n[已注入時間 + 登入資訊]', highlight: false },
+          { role: 'user', roleLabel: 'User', content: '中興大學圖書館有什麼新書？', highlight: false },
+        ],
+        promptVisible: false, sseVisible: false, iterBadgeText: '第 1 輪'
+      });
+      // Step 5: API returns tool_use
+      s.push({
+        desc: '<strong>Sonnet 回傳 tool_use</strong>：模型的 <code>stop_reason = "tool_use"</code>，表示它要呼叫工具而非直接回覆。回傳的 tool call 是 <code>search_new_books</code>。',
+        activeNode: 'api', doneNodes: ['user','controller','mcp-client','claude-client'],
+        iteration: 1, maxIter: 7,
+        messages: [
+          { role: 'system', roleLabel: 'System Prompt', content: '你是中興大學智慧助理「TARA」...\n[已注入時間 + 登入資訊]', highlight: false },
+          { role: 'user', roleLabel: 'User', content: '中興大學圖書館有什麼新書？', highlight: false },
+          { role: 'assistant', roleLabel: 'Assistant (Sonnet)', content: '我需要查詢圖書館的新書資訊。', highlight: true },
+          { role: 'tool-call', roleLabel: 'Tool Call', content: 'search_new_books({\n  "query": "新書",\n  "limit": 10\n})', highlight: true },
+        ],
+        promptVisible: false,
+        sseVisible: true,
+        sseContent: '<span class="sse-type">tools_start</span>     → 開始工具呼叫\n<span class="sse-type">tool_executing</span>  → search_new_books',
+        iterBadgeText: '第 1 輪 — tool_use'
+      });
+      // Step 6: MCP tool execution
+      s.push({
+        desc: '<strong>執行 MCP 工具</strong>：<code>raw-mcp-client</code> 偵測到 tool_use，透過 <code>mcp/server-connection.js</code> 呼叫 <code>search_new_books</code> Python 腳本，並自動注入 <code>user_id</code> 給工具。',
+        activeNode: 'tools', doneNodes: ['user','controller','mcp-client','claude-client','api'],
+        iteration: 1, maxIter: 7,
+        messages: [
+          { role: 'system', roleLabel: 'System Prompt', content: '你是中興大學智慧助理「TARA」...\n[已注入時間 + 登入資訊]', highlight: false },
+          { role: 'user', roleLabel: 'User', content: '中興大學圖書館有什麼新書？', highlight: false },
+          { role: 'assistant', roleLabel: 'Assistant (Sonnet)', content: '我需要查詢圖書館的新書資訊。', highlight: false },
+          { role: 'tool-call', roleLabel: 'Tool Call', content: 'search_new_books({\n  "query": "新書",\n  "limit": 10\n})', highlight: false },
+          { role: 'tool-result', roleLabel: 'Tool Result (search_new_books)', content: '[\n  {"title": "深度學習入門", "author": "王大明", "date": "2026-03"},\n  {"title": "量子計算導論", "author": "李小華", "date": "2026-03"},\n  {"title": "永續農業新技術", "author": "陳志明", "date": "2026-02"},\n  ... (共 10 筆)\n]', highlight: true },
+        ],
+        promptVisible: false,
+        sseVisible: true,
+        sseContent: '<span class="sse-type">tool_executing</span>  → search_new_books\n<span class="sse-type">tool_completed</span>  → 回傳 10 筆結果',
+        iterBadgeText: '第 1 輪 — 工具執行中'
+      });
+      // Step 7: Iteration 2 - back to Sonnet with tool result
+      s.push({
+        desc: '<strong>第 2 輪迭代</strong>：工具結果被追加到 messages，<code>stop_reason</code> 是 tool_use 所以繼續迭代。再次送往 Sonnet，這次模型收到工具結果後，決定直接組織回覆。',
+        activeNode: 'claude-client', doneNodes: ['user','controller','mcp-client'],
+        iteration: 2, maxIter: 7,
+        messages: [
+          { role: 'system', roleLabel: 'System Prompt', content: '你是中興大學智慧助理「TARA」...\n[已注入時間 + 登入資訊]', highlight: false },
+          { role: 'user', roleLabel: 'User', content: '中興大學圖書館有什麼新書？', highlight: false },
+          { role: 'assistant', roleLabel: 'Assistant (Sonnet)', content: '我需要查詢圖書館的新書資訊。', highlight: false },
+          { role: 'tool-call', roleLabel: 'Tool Call', content: 'search_new_books({...})', highlight: false },
+          { role: 'tool-result', roleLabel: 'Tool Result', content: '[{"title":"深度學習入門",...}, ... (10筆)]', highlight: false },
+        ],
+        promptVisible: false, sseVisible: false, iterBadgeText: '第 2 輪'
+      });
+      // Step 8: Sonnet generates final response
+      s.push({
+        desc: '<strong>Sonnet 產生最終回覆</strong>：<code>stop_reason = "end_turn"</code>，模型不再呼叫工具，直接輸出結構化的新書清單回覆。Loop 結束。',
+        activeNode: 'api', doneNodes: ['user','controller','mcp-client','claude-client'],
+        iteration: 2, maxIter: 7,
+        messages: [
+          { role: 'system', roleLabel: 'System Prompt', content: '你是中興大學智慧助理「TARA」...\n[已注入時間 + 登入資訊]', highlight: false },
+          { role: 'user', roleLabel: 'User', content: '中興大學圖書館有什麼新書？', highlight: false },
+          { role: 'assistant', roleLabel: 'Assistant (Sonnet)', content: '我需要查詢圖書館的新書資訊。', highlight: false },
+          { role: 'tool-call', roleLabel: 'Tool Call', content: 'search_new_books({...})', highlight: false },
+          { role: 'tool-result', roleLabel: 'Tool Result', content: '[10 筆新書結果]', highlight: false },
+          { role: 'assistant', roleLabel: 'Assistant (Sonnet) — 最終回覆', content: '以下是中興大學圖書館最新的書籍：\n\n1. 《深度學習入門》— 王大明 (2026-03)\n2. 《量子計算導論》— 李小華 (2026-03)\n3. 《永續農業新技術》— 陳志明 (2026-02)\n...\n\n您可以到圖書館網站查看完整清單！', highlight: true },
+        ],
+        promptVisible: false,
+        sseVisible: true,
+        sseContent: '<span class="sse-type">response_start</span>  → 開始串流回覆\n<span class="sse-type">text_chunk</span>      → "以下是中興大學圖書館..."\n<span class="sse-type">text_chunk</span>      → "1. 《深度學習入門》..."\n<span class="sse-type">response_end</span>    → stop_reason: end_turn',
+        iterBadgeText: '第 2 輪 — end_turn'
+      });
+      // Step 9: SSE streaming to user
+      s.push({
+        desc: '<strong>SSE 串流回覆給用戶</strong>：回覆透過 <code>response.body.getReader()</code> 以 Server-Sent Events 格式逐段送回瀏覽器，前端即時顯示打字效果。整個流程完成！',
+        activeNode: 'stream', doneNodes: ['user','controller','mcp-client','claude-client','api','tools'],
+        iteration: 2, maxIter: 7,
+        messages: [
+          { role: 'system', roleLabel: 'System Prompt', content: '...', highlight: false },
+          { role: 'user', roleLabel: 'User', content: '中興大學圖書館有什麼新書？', highlight: false },
+          { role: 'assistant', roleLabel: 'Assistant (Sonnet)', content: '我需要查詢圖書館的新書資訊。', highlight: false },
+          { role: 'tool-call', roleLabel: 'Tool Call', content: 'search_new_books({...})', highlight: false },
+          { role: 'tool-result', roleLabel: 'Tool Result', content: '[10 筆新書結果]', highlight: false },
+          { role: 'assistant', roleLabel: 'Assistant — 最終回覆 ✓', content: '以下是中興大學圖書館最新的書籍：\n1. 《深度學習入門》— 王大明\n2. 《量子計算導論》— 李小華\n3. 《永續農業新技術》— 陳志明\n...', highlight: true },
+        ],
+        promptVisible: false,
+        sseVisible: true,
+        sseContent: '<span class="sse-type">response_end</span>    → stop_reason: end_turn\n<span class="sse-type">done</span>              → 串流結束，共 2 輪迭代',
+        iterBadgeText: '完成 (2/7 輪)'
+      });
+      return s;
+    }
+  },
+  // Scenario 1: no tool needed
+  {
+    query: '你好，請問你是誰？',
+    systemPrompt: `你是中興大學智慧助理「TARA」。...`,
+    steps: function() {
+      const s = [];
+      s.push({
+        desc: '<strong>使用者送出查詢</strong>：這是一個簡單的問候，不需要呼叫任何 MCP 工具。',
+        activeNode: 'user', doneNodes: [],
+        iteration: 0, maxIter: 7,
+        messages: [],
+        promptVisible: false, sseVisible: false, iterBadgeText: '尚未開始'
+      });
+      s.push({
+        desc: '<strong>ChatController 接收請求</strong>：同樣注入時間與登入資訊到 system prompt。',
+        activeNode: 'controller', doneNodes: ['user'],
+        iteration: 0, maxIter: 7,
+        messages: [],
+        promptVisible: true,
+        promptContent: '你是中興大學智慧助理「TARA」。...\n[ChatController 注入]\n現在時間：2026-03-30 10:15 (一)\n登入狀態：NCHU SSO 已登入',
+        sseVisible: false, iterBadgeText: '尚未開始'
+      });
+      s.push({
+        desc: '<strong>raw-mcp-client.js 建立 messages</strong>：設定 <code>maxIterations = 7</code>，開始第 1 輪迭代。',
+        activeNode: 'mcp-client', doneNodes: ['user','controller'],
+        iteration: 0, maxIter: 7,
+        messages: [
+          { role: 'system', roleLabel: 'System Prompt', content: '你是中興大學智慧助理「TARA」...\n[已注入時間 + 登入資訊]', highlight: true },
+          { role: 'user', roleLabel: 'User', content: '你好，請問你是誰？', highlight: true },
+        ],
+        promptVisible: false, sseVisible: false, iterBadgeText: '準備中'
+      });
+      s.push({
+        desc: '<strong>第 1 輪迭代</strong>：送往 Sonnet API。模型判斷這個問題<strong>不需要任何工具</strong>，直接回覆。<code>stop_reason = "end_turn"</code>。',
+        activeNode: 'api', doneNodes: ['user','controller','mcp-client','claude-client'],
+        iteration: 1, maxIter: 7,
+        messages: [
+          { role: 'system', roleLabel: 'System Prompt', content: '你是中興大學智慧助理「TARA」...\n[已注入時間 + 登入資訊]', highlight: false },
+          { role: 'user', roleLabel: 'User', content: '你好，請問你是誰？', highlight: false },
+          { role: 'assistant', roleLabel: 'Assistant (Sonnet) — 最終回覆', content: '你好！我是 TARA，中興大學的智慧助理。\n我可以幫你查詢課程、圖書館資源、校園活動、\n法規資訊等。有什麼我可以幫忙的嗎？', highlight: true },
+        ],
+        promptVisible: false,
+        sseVisible: true,
+        sseContent: '<span class="sse-type">response_start</span>  → 開始串流回覆\n<span class="sse-type">text_chunk</span>      → "你好！我是 TARA..."\n<span class="sse-type">response_end</span>    → stop_reason: end_turn',
+        iterBadgeText: '第 1 輪 — end_turn'
+      });
+      s.push({
+        desc: '<strong>SSE 串流回覆</strong>：因為不需要工具，只用了 <strong>1 輪迭代</strong>就完成。回覆直接串流給瀏覽器。',
+        activeNode: 'stream', doneNodes: ['user','controller','mcp-client','claude-client','api'],
+        iteration: 1, maxIter: 7,
+        messages: [
+          { role: 'system', roleLabel: 'System Prompt', content: '...', highlight: false },
+          { role: 'user', roleLabel: 'User', content: '你好，請問你是誰？', highlight: false },
+          { role: 'assistant', roleLabel: 'Assistant — 最終回覆 ✓', content: '你好！我是 TARA，中興大學的智慧助理。\n我可以幫你查詢課程、圖書館資源、校園活動、\n法規資訊等。有什麼我可以幫忙的嗎？', highlight: true },
+        ],
+        promptVisible: false,
+        sseVisible: true,
+        sseContent: '<span class="sse-type">done</span>              → 串流結束，共 1 輪迭代（無工具呼叫）',
+        iterBadgeText: '完成 (1/7 輪)'
+      });
+      return s;
+    }
+  }
+];
+
+let currentScenario = 0;
+
+function generateSteps() {
+  steps = scenarios[currentScenario].steps();
+}
+
+function renderStep(idx) {
+  const s = steps[idx];
+  document.getElementById('desc').innerHTML = s.desc;
+
+  // Architecture flow
+  renderArchFlow(s.activeNode, s.doneNodes);
+
+  // Iteration bar
+  const currentIter = s.iteration;
+  renderIterationBar(currentIter, currentIter, s.maxIter);
+
+  // Messages
+  setMessagesFromState(s.messages);
+
+  // Prompt detail
+  if (s.promptVisible) {
+    showPromptDetail(s.promptContent);
+  } else {
+    hidePromptDetail();
+  }
+
+  // SSE
+  if (s.sseVisible) {
+    showSSE(s.sseContent);
+  } else {
+    hideSSE();
+  }
+
+  // Iteration badge
+  updateIterBadge(s.iterBadgeText);
+}
+
+function renderInitial() {
+  const sc = scenarios[currentScenario];
+  document.getElementById('desc').textContent = '點擊「下一步 →」開始動畫，跟著一個真實查詢走過原始 Sonnet 流程的每一步。';
+  document.getElementById('queryDisplay').textContent = '「' + sc.query + '」';
+  renderArchFlow(null, []);
+  renderIterationBar(0, 0, 7);
+  setMessagesFromState([]);
+  hidePromptDetail();
+  hideSSE();
+  updateIterBadge('尚未開始');
+}
+
+function onScenarioChange() {
+  currentScenario = parseInt(document.getElementById('scenarioSelect').value);
+  reset();
+  generateSteps();
+  updateControls();
+}
+
+// === INIT ===
+generateSteps();
+renderInitial();
+updateControls();
+</script>
+</body>
+</html>

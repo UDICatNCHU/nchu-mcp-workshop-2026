@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Haiku Alignment 優化流程 — Running Example 互動式教學動畫</title>
+<style>
+  :root {
+    --bg-primary: #ffffff;
+    --bg-secondary: #f5f4f0;
+    --bg-tertiary: #eae8e2;
+    --text-primary: #1a1a1a;
+    --text-secondary: #6b6b6b;
+    --text-info: #185FA5;
+    --border: rgba(0,0,0,0.12);
+    --border-strong: rgba(0,0,0,0.22);
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, monospace;
+    /* Phase colors */
+    --phase-old: #9CA3AF; --phase-old-bg: #F3F4F6; --phase-old-text: #374151;
+    --phase-enrich: #7C3AED; --phase-enrich-bg: #EEEDFE; --phase-enrich-text: #3C3489;
+    --phase-retrieve: #0D9488; --phase-retrieve-bg: #E1F5EE; --phase-retrieve-text: #085041;
+    --phase-build: #185FA5; --phase-build-bg: #E6F1FB; --phase-build-text: #0C447C;
+    --phase-call: #E65100; --phase-call-bg: #FFF3E0; --phase-call-text: #7C2D12;
+    --phase-format: #DB2777; --phase-format-bg: #FBEAF0; --phase-format-text: #72243E;
+    --color-sorted: #E1F5EE; --text-on-sorted: #085041;
+    --color-active: #FAEEDA; --text-on-active: #633806;
+    --color-compare: #FAECE7; --text-on-compare: #712B13;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg-primary: #1a1a1a; --bg-secondary: #2a2a28; --bg-tertiary: #353533;
+      --text-primary: #e8e6de; --text-secondary: #9c9a92; --text-info: #85B7EB;
+      --border: rgba(255,255,255,0.12); --border-strong: rgba(255,255,255,0.22);
+      --phase-old-bg: #374151; --phase-old-text: #D1D5DB;
+      --phase-enrich-bg: #3C3489; --phase-enrich-text: #AFA9EC;
+      --phase-retrieve-bg: #085041; --phase-retrieve-text: #5DCAA5;
+      --phase-build-bg: #0C447C; --phase-build-text: #85B7EB;
+      --phase-call-bg: #7C2D12; --phase-call-text: #F0997B;
+      --phase-format-bg: #72243E; --phase-format-text: #ED93B1;
+      --color-sorted: #085041; --text-on-sorted: #5DCAA5;
+      --color-active: #633806; --text-on-active: #FAC775;
+      --color-compare: #712B13; --text-on-compare: #F0997B;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font-sans); background: var(--bg-primary); color: var(--text-primary); padding: 1.5rem 2rem; line-height: 1.6; }
+  .container { max-width: 1040px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 500; margin-bottom: 4px; }
+  .subtitle { font-size: 14px; color: var(--text-secondary); margin-bottom: 1.2rem; }
+
+  /* Controls */
+  .controls { display: flex; align-items: center; gap: 10px; margin-bottom: 0.8rem; flex-wrap: wrap; }
+  .controls button { padding: 6px 14px; border-radius: var(--radius-md); border: 1px solid var(--border-strong); background: transparent; color: var(--text-primary); cursor: pointer; font-size: 13px; font-family: var(--font-sans); transition: background .15s, transform .1s; white-space: nowrap; }
+  .controls button:hover { background: var(--bg-secondary); }
+  .controls button:active { transform: scale(0.97); }
+  .controls button:disabled { opacity: 0.35; cursor: default; }
+  .speed-ctrl { display: flex; align-items: center; gap: 6px; margin-left: 8px; font-size: 12px; color: var(--text-secondary); }
+  .speed-ctrl input[type=range] { width: 80px; accent-color: var(--text-info); }
+  .step-counter { font-size: 12px; color: var(--text-secondary); margin-left: auto; white-space: nowrap; }
+
+  /* Phase tags */
+  .phase-bar { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+  .phase-tag { font-size: 11px; padding: 3px 10px; border-radius: 12px; font-weight: 500; opacity: 0.4; transition: opacity .3s, transform .2s; }
+  .phase-tag.active { opacity: 1; transform: scale(1.05); }
+  .phase-tag.done { opacity: 0.7; }
+  .phase-tag[data-phase="old"] { background: var(--phase-old-bg); color: var(--phase-old-text); }
+  .phase-tag[data-phase="enrich"] { background: var(--phase-enrich-bg); color: var(--phase-enrich-text); }
+  .phase-tag[data-phase="retrieve"] { background: var(--phase-retrieve-bg); color: var(--phase-retrieve-text); }
+  .phase-tag[data-phase="build"] { background: var(--phase-build-bg); color: var(--phase-build-text); }
+  .phase-tag[data-phase="call"] { background: var(--phase-call-bg); color: var(--phase-call-text); }
+  .phase-tag[data-phase="format"] { background: var(--phase-format-bg); color: var(--phase-format-text); }
+
+  /* Step description */
+  .step-desc { font-size: 14px; color: var(--text-secondary); line-height: 1.65; min-height: 44px; margin-bottom: 1rem; }
+  .step-desc code { font-family: var(--font-mono); background: var(--bg-secondary); padding: 1px 5px; border-radius: 4px; font-size: 13px; }
+  .step-desc strong { font-weight: 500; color: var(--text-primary); }
+
+  /* Two-panel layout */
+  .panels { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 1.2rem; }
+  @media (max-width: 768px) { .panels { grid-template-columns: 1fr; } }
+  .panel { border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; min-height: 360px; }
+  .panel-header { font-size: 12px; font-weight: 500; padding: 8px 14px; background: var(--bg-secondary); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+  .panel-badge { font-size: 10px; padding: 2px 8px; border-radius: 8px; background: var(--bg-tertiary); color: var(--text-secondary); }
+  .panel-body { padding: 14px; font-size: 13px; line-height: 1.7; }
+
+  /* Flow diagram nodes */
+  .flow-col { display: flex; flex-direction: column; gap: 8px; }
+  .flow-node { padding: 8px 12px; border-radius: var(--radius-md); border: 1px solid var(--border); font-size: 12px; transition: all .35s ease; position: relative; }
+  .flow-node.highlight { border-width: 2px; box-shadow: 0 0 0 3px rgba(0,0,0,0.06); }
+  .flow-node .label { font-weight: 500; margin-bottom: 2px; }
+  .flow-node .detail { font-size: 11px; color: var(--text-secondary); font-family: var(--font-mono); }
+  .flow-arrow { text-align: center; font-size: 16px; color: var(--text-secondary); line-height: 1; padding: 2px 0; }
+  .flow-node.old-style { background: var(--phase-old-bg); border-color: var(--phase-old); }
+  .flow-node.enrich-style { background: var(--phase-enrich-bg); border-color: var(--phase-enrich); }
+  .flow-node.retrieve-style { background: var(--phase-retrieve-bg); border-color: var(--phase-retrieve); }
+  .flow-node.build-style { background: var(--phase-build-bg); border-color: var(--phase-build); }
+  .flow-node.call-style { background: var(--phase-call-bg); border-color: var(--phase-call); }
+  .flow-node.format-style { background: var(--phase-format-bg); border-color: var(--phase-format); }
+  .flow-node.inactive { opacity: 0.35; }
+  .flow-node.done-node { opacity: 0.7; }
+
+  /* Code/data panel */
+  .code-block { background: var(--bg-secondary); border-radius: var(--radius-md); padding: 12px; font-family: var(--font-mono); font-size: 12px; line-height: 1.7; white-space: pre-wrap; word-break: break-all; overflow-x: auto; margin-bottom: 10px; border: 1px solid var(--border); }
+  .code-block .hl { background: #FAEEDA; padding: 0 3px; border-radius: 3px; }
+  @media (prefers-color-scheme: dark) { .code-block .hl { background: #633806; } }
+  .code-block .comment { color: var(--text-secondary); }
+  .data-label { font-size: 11px; font-weight: 500; color: var(--text-secondary); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  /* Trace cards */
+  .trace-card { background: var(--bg-secondary); border-radius: var(--radius-md); padding: 8px 12px; margin-bottom: 6px; font-size: 12px; border-left: 3px solid var(--phase-retrieve); }
+  .trace-card .q { font-weight: 500; }
+  .trace-card .tool { font-family: var(--font-mono); color: var(--phase-retrieve-text); font-size: 11px; }
+  .trace-card .score { float: right; font-size: 10px; color: var(--text-secondary); }
+
+  /* Prompt assembly */
+  .prompt-block { border-radius: var(--radius-md); padding: 8px 12px; margin-bottom: 6px; font-size: 12px; border: 1px solid var(--border); transition: all .3s; }
+  .prompt-block.active-block { border-color: var(--phase-build); box-shadow: 0 0 0 2px rgba(24,95,165,0.15); }
+  .prompt-block .block-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px; }
+
+  /* Compare table */
+  .compare-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px; }
+  .compare-cell { padding: 10px; border-radius: var(--radius-md); font-size: 12px; border: 1px solid var(--border); }
+  .compare-cell.old { background: var(--phase-old-bg); }
+  .compare-cell.new { background: var(--phase-enrich-bg); }
+  .compare-cell .cell-title { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+
+  /* Legend */
+  .legend { display: flex; gap: 12px; flex-wrap: wrap; padding-top: 1rem; border-top: 1px solid var(--border); }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-secondary); }
+  .legend-swatch { width: 14px; height: 14px; border-radius: 3px; border: 1px solid var(--border); }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Haiku Alignment 優化流程</h1>
+  <p class="subtitle">Running Example：使用者問「原子習慣那本書還在館內嗎」— 從 Sonnet 直接呼叫到 Haiku + Alignment 注入的完整對比</p>
+
+  <div class="phase-bar" id="phaseBar">
+    <span class="phase-tag" data-phase="old">Phase 0: 原始 Sonnet 流程</span>
+    <span class="phase-tag" data-phase="enrich">Phase 1: 觸發 Alignment</span>
+    <span class="phase-tag" data-phase="retrieve">Phase 2: 檢索相似 Trace</span>
+    <span class="phase-tag" data-phase="build">Phase 3: 組裝 System Prompt</span>
+    <span class="phase-tag" data-phase="call">Phase 4: Haiku API 呼叫</span>
+    <span class="phase-tag" data-phase="format">Phase 5: 格式化最終回覆</span>
+  </div>
+
+  <div class="controls">
+    <button id="prevBtn" onclick="prev()" disabled>&#8592; 上一步</button>
+    <button id="nextBtn" onclick="next()">下一步 &#8594;</button>
+    <button id="playBtn" onclick="togglePlay()">&#9654; 自動播放</button>
+    <div class="speed-ctrl">
+      <span>速度</span>
+      <input type="range" min="0.5" max="3" value="1" step="0.5" id="speedSlider" oninput="updateSpeed(this.value)">
+      <span id="speedVal">1x</span>
+    </div>
+    <button onclick="reset()">重置</button>
+    <span class="step-counter" id="stepCounter">步驟 0 / 0</span>
+  </div>
+
+  <div class="step-desc" id="desc">點擊「下一步 →」開始，對比 Sonnet 原始流程與 Haiku Alignment 優化流程。</div>
+
+  <div class="panels">
+    <div class="panel">
+      <div class="panel-header">
+        <span>流程圖</span>
+        <span class="panel-badge" id="flowBadge"></span>
+      </div>
+      <div class="panel-body" id="flowPanel">
+        <div style="text-align:center;padding:40px 20px;color:var(--text-secondary);font-size:13px;">流程步驟將在這裡逐步展開</div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-header">
+        <span>程式碼 / 資料</span>
+        <span class="panel-badge" id="dataBadge"></span>
+      </div>
+      <div class="panel-body" id="dataPanel">
+        <div style="text-align:center;padding:40px 20px;color:var(--text-secondary);font-size:13px;">對應的程式碼和資料將在這裡顯示</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-swatch" style="background:var(--phase-old-bg)"></div>原始 Sonnet</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:var(--phase-enrich-bg)"></div>觸發 Alignment</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:var(--phase-retrieve-bg)"></div>Trace 檢索</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:var(--phase-build-bg)"></div>Prompt 組裝</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:var(--phase-call-bg)"></div>API 呼叫</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:var(--phase-format-bg)"></div>格式化回覆</div>
+  </div>
+</div>
+
+<script>
+// === STEPPER ENGINE ===
+let steps = [];
+let cur = -1;
+let playing = false;
+let timer = null;
+let speed = 1;
+
+function next() { if (cur >= steps.length - 1) return; cur++; renderStep(cur); updateControls(); }
+function prev() { if (cur < 0) return; cur--; if (cur >= 0) renderStep(cur); else renderInitial(); updateControls(); }
+function togglePlay() {
+  if (playing) { stopPlay(); return; }
+  if (cur >= steps.length - 1) { cur = -1; renderInitial(); }
+  playing = true;
+  document.getElementById('playBtn').textContent = '⏸ 暫停';
+  timer = setInterval(() => { if (cur >= steps.length - 1) { stopPlay(); return; } next(); }, 1800 / speed);
+}
+function stopPlay() { playing = false; clearInterval(timer); timer = null; document.getElementById('playBtn').textContent = '▶ 自動播放'; }
+function updateSpeed(v) { speed = parseFloat(v); document.getElementById('speedVal').textContent = speed + 'x'; if (playing) { stopPlay(); togglePlay(); } }
+function reset() { stopPlay(); cur = -1; renderInitial(); updateControls(); }
+function updateControls() {
+  document.getElementById('prevBtn').disabled = cur < 0;
+  document.getElementById('nextBtn').disabled = cur >= steps.length - 1;
+  document.getElementById('stepCounter').textContent = '步驟 ' + (cur + 1) + ' / ' + steps.length;
+}
+
+// === STEP DEFINITIONS ===
+function generateSteps() {
+  steps = [
+    // --- Phase 0: 原始 Sonnet 流程 (3 steps) ---
+    {
+      phase: 'old', desc: '<strong>Phase 0 — 原始 Sonnet 流程</strong>：使用者輸入「原子習慣那本書還在館內嗎」，直接進入 <code>raw-mcp-client.js</code> → <code>ClaudeClient</code>，system prompt 只有靜態 config prompt。',
+      flowBadge: '原始流程',
+      flow: `<div class="flow-col">
+        <div class="flow-node old-style highlight"><div class="label">👤 使用者查詢</div><div class="detail">"原子習慣那本書還在館內嗎"</div></div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-node old-style highlight"><div class="label">ChatController</div><div class="detail">注入時間 + 登入狀態</div></div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-node old-style highlight"><div class="label">raw-mcp-client.js</div><div class="detail">agentic loop (max 7 iterations)</div></div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-node old-style highlight"><div class="label">ClaudeClient (claude-client.js)</div><div class="detail">system = 靜態 config prompt</div></div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-node old-style highlight"><div class="label">Claude Sonnet API</div><div class="detail">$3.00 / 1M input tokens</div></div>
+      </div>`,
+      dataBadge: 'claude-client.js',
+      data: `<div class="data-label">原始 ClaudeClient.chat()</div>
+<div class="code-block"><span class="comment">// api/claude-client.js — 原始版本</span>
+async chat(messages, tools, options) {
+  const requestConfig = {
+    <span class="hl">model: 'claude-sonnet-4-20250514'</span>,
+    max_tokens: 4096,
+    <span class="hl">system: this.systemPrompt</span>,  <span class="comment">// ← 只有靜態 prompt</span>
+    messages,
+    tools,
+  };
+  return this.anthropic.messages.create(requestConfig);
+}</div>
+<div class="data-label" style="margin-top:10px">System Prompt 組成</div>
+<div class="code-block"><span class="comment">// 只有一層：config.json 定義的靜態 prompt</span>
+"你是中興大學的智慧助理..."
+<span class="comment">// + ChatController 注入的時間/登入資訊</span>
+<span class="comment">// 沒有工具選擇指引</span>
+<span class="comment">// 沒有 few-shot 範例</span>
+<span class="comment">// 沒有回覆格式規範</span></div>`
+    },
+    {
+      phase: 'old', desc: 'Sonnet 收到查詢後，<strong>直接決定呼叫工具</strong>。大模型能力強，即使沒有範例也能正確選擇 <code>library_search_books</code>。但代價是 <strong>$3/M tokens</strong> 的 input 成本。',
+      flowBadge: 'Sonnet 工具決策',
+      flow: `<div class="flow-col">
+        <div class="flow-node old-style done-node"><div class="label">👤 使用者查詢</div><div class="detail">"原子習慣那本書還在館內嗎"</div></div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-node old-style done-node"><div class="label">ChatController → raw-mcp-client.js</div></div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-node old-style highlight"><div class="label">Sonnet 工具決策</div><div class="detail">stop_reason: "tool_use"</div></div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-node old-style highlight" style="border-width:2px"><div class="label">✅ library_search_books({"query":"原子習慣"})</div><div class="detail">正確！但 Sonnet 很貴...</div></div>
+      </div>`,
+      dataBadge: 'Sonnet API Response',
+      data: `<div class="data-label">Sonnet 回應</div>
+<div class="code-block">{
+  "stop_reason": "tool_use",
+  "content": [{
+    "type": "tool_use",
+    "name": <span class="hl">"library_search_books"</span>,
+    "input": { "query": <span class="hl">"原子習慣"</span> }
+  }]
+}
+<span class="comment">// ✅ 正確選擇了工具和參數</span></div>
+<div class="data-label" style="margin-top:10px">成本分析</div>
+<div class="code-block"><span class="comment">// Sonnet pricing</span>
+Input:  $3.00 / 1M tokens
+Output: $15.00 / 1M tokens
+
+<span class="comment">// 每次請求大約 2000-3000 input tokens</span>
+<span class="comment">// 成本 ≈ $0.006-0.009 per request</span></div>`
+    },
+    {
+      phase: 'old', desc: '<strong>問題</strong>：Sonnet 準確但昂貴。如果改用便宜的 Haiku（$0.80/M tokens，省 73%），但<strong>不做任何引導</strong>，Haiku 可能選錯工具或填錯參數。解決方案：<strong>Alignment Middleware</strong>。',
+      flowBadge: '成本問題',
+      flow: `<div class="flow-col">
+        <div class="compare-row">
+          <div class="compare-cell old">
+            <div class="cell-title">❌ 問題：太貴</div>
+            <div style="font-size:24px;font-weight:600;margin:8px 0">$3.00<span style="font-size:12px;font-weight:400"> / 1M tokens</span></div>
+            <div style="font-size:11px;color:var(--text-secondary)">Claude Sonnet — 準確但昂貴</div>
+          </div>
+          <div class="compare-cell new">
+            <div class="cell-title">✅ 目標：便宜 + 準確</div>
+            <div style="font-size:24px;font-weight:600;margin:8px 0">$0.80<span style="font-size:12px;font-weight:400"> / 1M tokens</span></div>
+            <div style="font-size:11px;color:var(--text-secondary)">Claude Haiku + Alignment</div>
+          </div>
+        </div>
+        <div style="text-align:center;padding:12px;font-size:13px;color:var(--text-secondary)">
+          <strong style="font-size:20px;color:var(--phase-enrich)">節省 73%</strong><br>
+          透過 few-shot alignment 讓小模型也能正確選擇工具
+        </div>
+      </div>`,
+      dataBadge: '解決方案',
+      data: `<div class="data-label">核心思路</div>
+<div class="code-block"><span class="comment">// 大模型（Sonnet）：能力強，不需要範例</span>
+<span class="comment">//   → 但太貴</span>
+
+<span class="comment">// 小模型（Haiku）：能力弱一點，需要引導</span>
+<span class="comment">//   → 但便宜 73%</span>
+
+<span class="comment">// 解決方案：Alignment Middleware</span>
+<span class="comment">// 1. 收集 Sonnet 的歷史 trace（3207 筆正例）</span>
+<span class="comment">// 2. 每次查詢時，檢索最相似的 9 筆範例</span>
+<span class="comment">// 3. 注入到 system prompt，教 Haiku 怎麼做</span>
+<span class="comment">// 4. 再加上格式規範，確保回覆品質</span></div>
+<div class="data-label" style="margin-top:10px">新增元件</div>
+<div class="code-block">api/alignment-middleware.js    <span class="comment">// trace 檢索</span>
+api/claude-client-aligned.js   <span class="comment">// drop-in 替換</span>
+config/response-format-rules.js <span class="comment">// 格式模板</span>
+data/nchu_traces/*.jsonl       <span class="comment">// 3207+876 筆 trace</span></div>`
+    },
+
+    // --- Phase 1: 觸發 Alignment (2 steps) ---
+    {
+      phase: 'enrich', desc: '<strong>Phase 1 — 觸發 Alignment</strong>：同樣的查詢進入 <code>claude-client-aligned.js</code>。它是 <code>ClaudeClient</code> 的 <strong>drop-in replacement</strong>，差別在於會先等待 AlignmentMiddleware 初始化，再呼叫 <code>enrichSystemPrompt()</code>。',
+      flowBadge: 'claude-client-aligned.js',
+      flow: `<div class="flow-col">
+        <div class="flow-node old-style"><div class="label">👤 使用者查詢</div><div class="detail">"原子習慣那本書還在館內嗎"</div></div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-node old-style"><div class="label">ChatController → raw-mcp-client.js</div></div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-node enrich-style highlight"><div class="label">ClaudeClient (claude-client-aligned.js)</div><div class="detail">await this._alignmentReady</div></div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-node enrich-style highlight"><div class="label">extractUserQuery(messages)</div><div class="detail">→ "原子習慣那本書還在館內嗎"</div></div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-node enrich-style highlight" style="border-width:2px"><div class="label">🔮 alignment.enrichSystemPrompt()</div><div class="detail">originalPrompt, userQuery, toolNames</div></div>
+      </div>`,
+      dataBadge: 'claude-client-aligned.js',
+      data: `<div class="data-label">Aligned ClaudeClient — chat() 方法</div>
+<div class="code-block"><span class="comment">// api/claude-client-aligned.js</span>
+async chat(messages, tools, options) {
+  <span class="comment">// 等待 trace 載入完成</span>
+  <span class="hl">await this._alignmentReady;</span>
+
+  <span class="comment">// 從 messages 提取最新的使用者查詢</span>
+  const userQuery = <span class="hl">this._extractUserQuery(messages);</span>
+  <span class="comment">// → "原子習慣那本書還在館內嗎"</span>
+
+  <span class="comment">// 收集當前可用的工具名稱</span>
+  const toolNames = (tools || []).map(t => t.name);
+  <span class="comment">// → ["library_search_books", "library_hours", ...]</span>
+
+  <span class="comment">// ✨ 核心：豐富化 system prompt</span>
+  const systemPrompt = await <span class="hl">this.alignment.enrichSystemPrompt(</span>
+    <span class="hl">originalPrompt, userQuery, toolNames</span>
+  <span class="hl">);</span>
+
+  <span class="comment">// 之後正常呼叫 Haiku API</span>
+  return this.anthropic.messages.create({
+    model: config.claudeModel[0], <span class="comment">// haiku</span>
+    system: systemPrompt,
+    messages, tools,
+  });
+}</div>`
+    },
+    {
+      phase: 'enrich', desc: '<code>AlignmentMiddleware</code> 在啟動時就已載入所有 trace 並建好 embedding 快取。構造時設定 <code>topK=9</code>，從 3207 筆正例中檢索最相似的 9 筆。',
+      flowBadge: '初始化流程',
+      flow: `<div class="flow-col">
+        <div class="flow-node enrich-style highlight"><div class="label">new AlignmentMiddleware(tracesDir, { topK: 9 })</div></div>
+        <div class="flow-arrow">↓ initialize()</div>
+        <div class="flow-node enrich-style highlight"><div class="label">📂 載入 JSONL 檔案</div><div class="detail">nchu_tool_traces.jsonl → 3207 筆正例</div></div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-node enrich-style highlight"><div class="label">🔤 預先 tokenize 所有 trace</div><div class="detail">中文字元 + bigram + 英文詞</div></div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-node enrich-style highlight"><div class="label">🧮 建立 / 載入 embedding 快取</div><div class="detail">Xenova/multilingual-e5-small → Float32Array[]</div></div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-node enrich-style" style="opacity:0.6"><div class="label">✅ 就緒，等待查詢</div></div>
+      </div>`,
+      dataBadge: 'alignment-middleware.js',
+      data: `<div class="data-label">初始化過程</div>
+<div class="code-block"><span class="comment">// alignment-middleware.js</span>
+constructor(tracesDir, options = {}) {
+  this.topK = options.topK ?? <span class="hl">9</span>;
+  this.retrieval = options.retrieval ?? <span class="hl">'embedding'</span>;
+  this.embeddingModel = <span class="hl">'Xenova/multilingual-e5-small'</span>;
+}
+
+async initialize() {
+  <span class="comment">// 1. 載入所有 .jsonl 檔案</span>
+  const files = await this._findTraceFiles();
+  for (const file of files)
+    this.traces.push(...await this._loadJSONL(file));
+  <span class="comment">// → 3207 筆 traces</span>
+
+  <span class="comment">// 2. 過濾：只留有 tool_calls 的正例</span>
+  this.traces = this.traces.filter(
+    t => t.tool_calls?.length > 0
+  );
+
+  <span class="comment">// 3. 預先 tokenize（用於 keyword 回退）</span>
+  this.tokenizedTraces = this.traces.map(trace => ({
+    trace,
+    words: this._tokenize(trace.user_query),
+    toolNames: trace.tool_calls.map(tc => tc.tool_name),
+  }));
+
+  <span class="comment">// 4. 建立或載入 embedding 快取</span>
+  await this._initEmbeddings();
+}</div>`
+    },
+
+    // --- Phase 2: 檢索相似 Trace (3 steps) ---
+    {
+      phase: 'retrieve', desc: '<strong>Phase 2 — 檢索相似 Trace</strong>：使用者查詢「原子習慣那本書還在館內嗎」被 embed 為向量，與所有 3207 筆 trace 的向量做 <strong>cosine similarity</strong>。',
+      flowBadge: 'embedding 檢索',
+      flow: `<div class="flow-col">
+        <div class="flow-node retrieve-style highlight"><div class="label">🔍 _retrieveAsync(userQuery, toolNames)</div></div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-node retrieve-style highlight"><div class="label">Embed 使用者查詢</div><div class="detail">"query: 原子習慣那本書還在館內嗎" → Float32Array[384]</div></div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-node retrieve-style highlight"><div class="label">與 3207 筆 trace 向量計算 cosine similarity</div><div class="detail">for (let i = 0; i &lt; 3207; i++) { dot += a[i] * b[i]; }</div></div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-node retrieve-style"><div class="label">加上 tool overlap bonus</div><div class="detail">使用同一工具的 trace 加分</div></div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-node retrieve-style"><div class="label">排序 + 取 Top-9</div></div>
+      </div>`,
+      dataBadge: 'retrieval scoring',
+      data: `<div class="data-label">評分公式</div>
+<div class="code-block"><span class="comment">// _retrieveAsync() 的核心邏輯</span>
+const queryEmbedding = await this._embedQuery(userQuery);
+<span class="comment">// → Float32Array[384] 維向量</span>
+
+const scored = this.tokenizedTraces.map(
+  ({ trace, toolNames }, idx) => {
+    <span class="comment">// 語義相似度（權重 ×10）</span>
+    const embScore = <span class="hl">cosineSimilarity(</span>
+      <span class="hl">queryEmbedding, traceEmbeddings[idx]</span>
+    <span class="hl">) * 10;</span>
+
+    <span class="comment">// 工具重疊加分（權重 ×2）</span>
+    const toolScore = toolNames
+      .filter(tn => toolSet.has(tn))<span class="hl">.length * 2;</span>
+
+    return { trace, score: embScore + toolScore };
+  }
+);
+
+<span class="comment">// 排序取 Top-9</span>
+return scored
+  .sort((a, b) => b.score - a.score)
+  <span class="hl">.slice(0, 9)</span>
+  .map(s => s.trace);</div>`
+    },
+    {
+      phase: 'retrieve', desc: '檢索結果：找到 <strong>9 筆最相似的歷史 trace</strong>。這些都是 Sonnet 過去正確處理過的查詢，包含「library_search_books」工具呼叫的範例。',
+      flowBadge: 'Top-9 結果',
+      flow: `<div class="flow-col">
+        <div class="trace-card"><div class="score">score: 8.92</div><div class="q">Q: "原子習慣那本書還在館內嗎"</div><div class="tool">→ library_search_books({"query":"原子習慣"})</div></div>
+        <div class="trace-card"><div class="score">score: 8.45</div><div class="q">Q: "圖書館有沒有深度學習的書"</div><div class="tool">→ library_search_books({"query":"深度學習"})</div></div>
+        <div class="trace-card"><div class="score">score: 8.21</div><div class="q">Q: "我想借 Python 程式設計的書"</div><div class="tool">→ library_search_books({"query":"Python 程式設計"})</div></div>
+        <div class="trace-card"><div class="score">score: 7.88</div><div class="q">Q: "有沒有跟資料結構相關的書可以借"</div><div class="tool">→ library_search_books({"query":"資料結構"})</div></div>
+        <div class="trace-card"><div class="score">score: 7.63</div><div class="q">Q: "幫我查一下線性代數的教科書"</div><div class="tool">→ library_search_books({"query":"線性代數"})</div></div>
+        <div style="text-align:center;padding:6px;font-size:11px;color:var(--text-secondary)">... 還有 4 筆 (共 9 筆)</div>
+      </div>`,
+      dataBadge: 'trace 結構',
+      data: `<div class="data-label">每筆 trace 的 JSONL 格式</div>
+<div class="code-block">{
+  "id": "nchu_69322717ea65547144f579ba_1",
+  <span class="hl">"user_query": "原子習慣那本書還在館內嗎"</span>,
+  <span class="hl">"tool_calls": [{
+    "tool_name": "library_search_books",
+    "arguments": { "query": "原子習慣" },
+    "call_id": "toolu_01TSn1VEsfDVJyP4CBPT9J3Y"
+  }]</span>,
+  "scenario_type": "single",
+  "model": "claude-sonnet-4-20250514",
+  "conversation_id": "69322717ea65547144f579ba",
+  "message_index": 1
+}</div>
+<div class="data-label" style="margin-top:10px">多工具呼叫範例</div>
+<div class="code-block">{
+  "user_query": "圖書館要怎麼借空間？",
+  "tool_calls": [
+    { "tool_name": <span class="hl">"library_comprehensive_search"</span>,
+      "arguments": {"query": "空間借用"} },
+    { "tool_name": <span class="hl">"library_comprehensive_search"</span>,
+      "arguments": {"query": "研討室"} }
+  ],
+  "scenario_type": <span class="hl">"multi_parallel"</span>
+}</div>`
+    },
+    {
+      phase: 'retrieve', desc: '這些 trace 會被轉換成 <strong>few-shot 範例文字</strong>，格式是「使用者問 → 正確的工具呼叫」。這等於在「教」Haiku：看到類似問題，應該呼叫哪個工具。',
+      flowBadge: '_formatExamples()',
+      flow: `<div class="flow-col">
+        <div class="flow-node retrieve-style highlight"><div class="label">_formatExamples(topTraces)</div><div class="detail">將 9 筆 trace 轉為教學文字</div></div>
+        <div class="flow-arrow">↓ 輸出</div>
+        <div class="flow-node retrieve-style" style="font-size:11px;font-family:var(--font-mono);white-space:pre-wrap;line-height:1.6;padding:10px">## 正確的工具使用範例：
+
+### 範例 1
+**使用者**: 原子習慣那本書還在館內嗎
+**工具呼叫**: \`library_search_books({"query":"原子習慣"})\`
+
+### 範例 2
+**使用者**: 圖書館有沒有深度學習的書
+**工具呼叫**: \`library_search_books({"query":"深度學習"})\`
+
+### 範例 3
+**使用者**: 我想借 Python 程式設計的書
+**工具呼叫**: \`library_search_books({"query":"Python 程式設計"})\`
+...</div>
+      </div>`,
+      dataBadge: '格式化程式碼',
+      data: `<div class="data-label">_formatExamples()</div>
+<div class="code-block"><span class="comment">// alignment-middleware.js</span>
+_formatExamples(traces) {
+  const lines = [<span class="hl">'## 正確的工具使用範例：'</span>];
+
+  for (let i = 0; i &lt; traces.length; i++) {
+    const trace = traces[i];
+    lines.push(\`### 範例 \${i + 1}\`);
+    lines.push(\`**使用者**: \${trace.user_query}\`);
+
+    if (trace.tool_calls?.length > 0) {
+      const toolCallStrs = trace.tool_calls.map(tc => {
+        const args = JSON.stringify(tc.arguments);
+        return \`\\\`\${tc.tool_name}(\${args})\\\`\`;
+      });
+      lines.push(
+        \`**工具呼叫**: \${toolCallStrs.join(', ')}\`
+      );
+    } else {
+      lines.push('**工具呼叫**: 無（直接回答）');
+    }
+    lines.push('');
+  }
+  return lines.join('\\n');
+}</div>`
+    },
+
+    // --- Phase 3: 組裝 System Prompt (3 steps) ---
+    {
+      phase: 'build', desc: '<strong>Phase 3 — 組裝 System Prompt</strong>：<code>_buildPrompt()</code> 將四個區塊依序串接。這就是送給 Haiku 的完整 system prompt。',
+      flowBadge: '_buildPrompt()',
+      flow: `<div class="flow-col">
+        <div class="prompt-block active-block" style="background:var(--phase-old-bg)">
+          <div class="block-label">① 原始 System Prompt</div>
+          <div style="font-size:11px;color:var(--text-secondary)">"你是中興大學的智慧助理..." + 時間/登入資訊</div>
+        </div>
+        <div class="flow-arrow">+</div>
+        <div class="prompt-block active-block" style="background:var(--phase-enrich-bg)">
+          <div class="block-label">② ALIGNMENT_RULES（4 條規則）</div>
+          <div style="font-size:11px;color:var(--text-secondary)">工具選擇規則：只呼叫存在的工具、填寫所有必要參數...</div>
+        </div>
+        <div class="flow-arrow">+</div>
+        <div class="prompt-block active-block" style="background:var(--phase-format-bg)">
+          <div class="block-label">③ RESPONSE_FORMAT_RULES（格式模板）</div>
+          <div style="font-size:11px;color:var(--text-secondary)">書籍/課程/活動/人員/法規五大分類的 Markdown 模板</div>
+        </div>
+        <div class="flow-arrow">+</div>
+        <div class="prompt-block active-block" style="background:var(--phase-retrieve-bg)">
+          <div class="block-label">④ Few-shot 範例（Top-9）</div>
+          <div style="font-size:11px;color:var(--text-secondary)">從 3207 筆 trace 檢索出的 9 筆最相似範例</div>
+        </div>
+      </div>`,
+      dataBadge: '_buildPrompt()',
+      data: `<div class="data-label">Prompt 組裝程式碼</div>
+<div class="code-block"><span class="comment">// alignment-middleware.js</span>
+_buildPrompt(originalPrompt, topTraces) {
+  const sections = [
+    <span class="hl">originalPrompt</span>,        <span class="comment">// ① 原始 prompt</span>
+    <span class="hl">ALIGNMENT_RULES</span>,        <span class="comment">// ② 4 條規則</span>
+    <span class="hl">RESPONSE_FORMAT_RULES</span>,  <span class="comment">// ③ 格式模板</span>
+  ];
+
+  if (topTraces.length > 0) {
+    sections.push(
+      <span class="hl">this._formatExamples(topTraces)</span>  <span class="comment">// ④ 範例</span>
+    );
+  }
+
+  return sections.join('\\n\\n');
+}
+
+<span class="comment">// enrichSystemPrompt() 是入口</span>
+async enrichSystemPrompt(originalPrompt, userQuery, toolNames) {
+  const topTraces = await this._retrieveAsync(
+    userQuery, toolNames
+  );
+  return this._buildPrompt(originalPrompt, topTraces);
+}</div>`
+    },
+    {
+      phase: 'build', desc: '<strong>ALIGNMENT_RULES</strong>：四條精簡的工具選擇規則。告訴 Haiku「怎麼正確選工具」。',
+      flowBadge: 'ALIGNMENT_RULES',
+      flow: `<div class="flow-col">
+        <div class="prompt-block" style="background:var(--phase-old-bg);opacity:0.5">
+          <div class="block-label">① 原始 System Prompt ✓</div>
+        </div>
+        <div class="prompt-block active-block" style="background:var(--phase-enrich-bg);border-width:2px">
+          <div class="block-label">② ALIGNMENT_RULES ← 目前在這裡</div>
+          <div style="font-size:12px;margin-top:6px;line-height:1.8">
+            <strong>1.</strong> 只呼叫提供的工具列表中存在的工具<br>
+            <strong>2.</strong> 填寫所有必要的參數，從用戶的問題中推導參數值<br>
+            <strong>3.</strong> 如果沒有適合的工具，直接回答，不要呼叫工具<br>
+            <strong>4.</strong> 需要多個獨立操作時，在一次回應中發出所有工具呼叫
+          </div>
+        </div>
+        <div class="prompt-block" style="background:var(--phase-format-bg);opacity:0.5">
+          <div class="block-label">③ RESPONSE_FORMAT_RULES</div>
+        </div>
+        <div class="prompt-block" style="background:var(--phase-retrieve-bg);opacity:0.5">
+          <div class="block-label">④ Few-shot 範例</div>
+        </div>
+      </div>`,
+      dataBadge: '為什麼需要規則？',
+      data: `<div class="data-label">ALIGNMENT_RULES 定義</div>
+<div class="code-block">const ALIGNMENT_RULES = \`
+你是一個精確的工具選擇助手。規則：
+<span class="hl">1. 只呼叫提供的工具列表中存在的工具。</span>
+<span class="hl">2. 填寫所有必要的參數，從用戶的問題中推導參數值。</span>
+<span class="hl">3. 如果沒有適合的工具，直接回答，不要呼叫工具。</span>
+<span class="hl">4. 需要多個獨立操作時，在一次回應中發出所有工具呼叫。</span>
+\`;</div>
+<div class="data-label" style="margin-top:10px">為什麼需要這些規則？</div>
+<div class="code-block"><span class="comment">// Haiku 沒有規則時可能出的錯：</span>
+
+<span class="comment">// 規則 1 — 避免「幻想工具」</span>
+<span class="comment">//   Haiku 可能呼叫不存在的工具名</span>
+
+<span class="comment">// 規則 2 — 避免「參數缺漏」</span>
+<span class="comment">//   例如只填 tool_name 忘記填 arguments</span>
+
+<span class="comment">// 規則 3 — 避免「過度工具化」</span>
+<span class="comment">//   問「你好」也去呼叫搜尋工具</span>
+
+<span class="comment">// 規則 4 — 提升效率</span>
+<span class="comment">//   需要多個工具時一次發出，不用多輪</span></div>`
+    },
+    {
+      phase: 'build', desc: '<strong>RESPONSE_FORMAT_RULES</strong>：定義書籍、課程、活動、人員、法規五大分類的 Markdown 模板。確保 Haiku 回覆的格式和 Sonnet 一樣好。',
+      flowBadge: 'RESPONSE_FORMAT_RULES',
+      flow: `<div class="flow-col">
+        <div class="prompt-block" style="background:var(--phase-old-bg);opacity:0.5">
+          <div class="block-label">① 原始 System Prompt ✓</div>
+        </div>
+        <div class="prompt-block" style="background:var(--phase-enrich-bg);opacity:0.5">
+          <div class="block-label">② ALIGNMENT_RULES ✓</div>
+        </div>
+        <div class="prompt-block active-block" style="background:var(--phase-format-bg);border-width:2px">
+          <div class="block-label">③ RESPONSE_FORMAT_RULES ← 目前在這裡</div>
+          <div style="font-size:11px;margin-top:6px;line-height:1.7">
+            <strong>書籍</strong>：書名 + 作者 + 封面圖 + 索書號<br>
+            <strong>課程</strong>：名稱 + 學分 + 教師 + 時間地點<br>
+            <strong>活動</strong>：名稱 + 日期 + 地點 + 報名連結<br>
+            <strong>人員</strong>：姓名 + 職稱 + 單位 + 聯絡方式<br>
+            <strong>法規</strong>：編號列表 + 標題分段 + 連結
+          </div>
+        </div>
+        <div class="prompt-block" style="background:var(--phase-retrieve-bg);opacity:0.5">
+          <div class="block-label">④ Few-shot 範例</div>
+        </div>
+      </div>`,
+      dataBadge: 'response-format-rules.js',
+      data: `<div class="data-label">格式規範（節錄）</div>
+<div class="code-block"><span class="comment">// config/response-format-rules.js</span>
+export const RESPONSE_FORMAT_RULES = \`
+## 回覆格式規範
+
+### 通用規則
+- 使用 Markdown 格式化回覆
+- 圖片使用 ![描述](url) 語法
+- 以使用者的語言回覆
+
+<span class="hl">### 書籍資源格式</span>
+呈現書籍清單時，每本書包含：
+- **書名** (出版年份)
+- 作者
+- ![封面](圖片URL)（如有圖片）
+- 索書號 / 館藏狀態
+- 相關連結
+
+### 課程資訊格式
+... (每門課: 名稱, 學分, 教師, 時間)
+
+### 活動資訊格式
+... (每個活動: 名稱, 日期, 地點, 報名)
+\`;</div>`
+    },
+
+    // --- Phase 4: Haiku API 呼叫 (2 steps) ---
+    {
+      phase: 'call', desc: '<strong>Phase 4 — Haiku API 呼叫</strong>：組裝好的 enriched system prompt 送給 <strong>Claude Haiku</strong>。Haiku 看到 9 筆「圖書查詢 → library_search_books」的範例後，正確選擇了工具。',
+      flowBadge: 'Haiku API Request',
+      flow: `<div class="flow-col">
+        <div class="flow-node build-style done-node"><div class="label">Enriched System Prompt</div><div class="detail">原始 + RULES + FORMAT + 9 個 few-shot 範例</div></div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-node call-style highlight"><div class="label">Claude Haiku API</div><div class="detail">$0.80 / 1M input tokens (省 73%!)</div></div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-node call-style highlight" style="border-width:2px"><div class="label">✅ Haiku 回應：tool_use</div><div class="detail">library_search_books({"query":"原子習慣"})</div></div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-node call-style"><div class="label">MCP 工具執行</div><div class="detail">Primo API → 取得書籍資訊 + 館藏狀態</div></div>
+      </div>`,
+      dataBadge: 'Haiku Response',
+      data: `<div class="data-label">Haiku 的回應（有了 alignment 引導後）</div>
+<div class="code-block">{
+  "model": <span class="hl">"claude-haiku-4-5-20251001"</span>,
+  "stop_reason": "tool_use",
+  "content": [{
+    "type": "tool_use",
+    "name": <span class="hl">"library_search_books"</span>,
+    "input": { "query": <span class="hl">"原子習慣"</span> }
+  }],
+  "usage": {
+    "input_tokens": 3847,  <span class="comment">// 多了 ~1500 (規則+範例)</span>
+    "output_tokens": 52
+  }
+}
+
+<span class="comment">// ✅ 和 Sonnet 選了一樣的工具！</span>
+<span class="comment">// ✅ 參數也完全正確！</span>
+<span class="comment">// 💰 但成本只有 Sonnet 的 27%</span></div>
+<div class="data-label" style="margin-top:10px">成本對比</div>
+<div class="code-block"><span class="comment">// 每次請求的 input 成本</span>
+Sonnet: 2300 tokens × $3.00/M = <span class="hl">$0.0069</span>
+Haiku:  3800 tokens × $0.80/M = <span class="hl">$0.0030</span>
+
+<span class="comment">// 雖然 Haiku 的 token 數更多（因為注入了範例）</span>
+<span class="comment">// 但單價便宜很多，整體還是省了 ~56%</span>
+<span class="comment">// 加上 output tokens 的差價，整體節省 ~73%</span></div>`
+    },
+    {
+      phase: 'call', desc: '工具執行結果回到 <strong>agentic loop</strong>。進入第 2 輪（最後一輪，iteration 7/7 或達到結果），此時注入<strong>最後一輪格式化提示</strong>。',
+      flowBadge: '最後一輪提示',
+      flow: `<div class="flow-col">
+        <div class="flow-node call-style done-node"><div class="label">Iteration 1: tool_use → 執行工具</div><div class="detail">library_search_books → 取得 3 本書的資訊</div></div>
+        <div class="flow-arrow">↓ tool_result 回到 messages</div>
+        <div class="flow-node call-style highlight"><div class="label">Iteration 2 (最後一輪)</div><div class="detail">注入臨時 system prompt</div></div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-node format-style highlight" style="border-width:2px"><div class="label">📝 最後一輪格式化提示</div><div class="detail">
+          「不要用工具，整理出結構化 Markdown 回覆」<br>
+          + 5 點格式要求
+        </div></div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-node call-style"><div class="label">Haiku 生成最終回覆</div><div class="detail">結構化 Markdown + 封面圖 + 索書號</div></div>
+      </div>`,
+      dataBadge: '最後一輪提示對比',
+      data: `<div class="data-label">原始 vs 新流程的最後一輪提示</div>
+<div class="compare-row">
+  <div class="compare-cell old">
+    <div class="cell-title">原始（Sonnet）</div>
+    <div style="font-size:11px;font-family:var(--font-mono);white-space:pre-wrap">"不要用工具，
+直接回覆"</div>
+  </div>
+  <div class="compare-cell new">
+    <div class="cell-title">新流程（Haiku + Alignment）</div>
+    <div style="font-size:11px;font-family:var(--font-mono);white-space:pre-wrap">"不要用工具，
+整理出結構化 Markdown 回覆"
++ 5 點格式要求：
+1. 使用 Markdown 標題
+2. 圖片用 ![](url)
+3. 重要資訊用粗體
+4. 附上連結
+5. 以使用者語言回覆</div>
+  </div>
+</div>
+<div class="code-block" style="margin-top:10px"><span class="comment">// raw-mcp-client.js — 最後一輪注入邏輯</span>
+if (iteration === maxIterations - 1) {
+  <span class="comment">// 注入臨時 system prompt</span>
+  <span class="comment">// 告訴模型：停止用工具，產生回覆</span>
+  messages.push({
+    role: 'user',
+    content: <span class="hl">FINAL_ROUND_PROMPT</span>
+  });
+}</div>`
+    },
+
+    // --- Phase 5: 格式化回覆 (2 steps) ---
+    {
+      phase: 'format', desc: '<strong>Phase 5 — 格式化最終回覆</strong>：Haiku 根據格式規範產生結構化的 Markdown 回覆，包含書名、作者、封面圖、索書號等資訊。品質與 Sonnet 相當！',
+      flowBadge: '最終回覆',
+      flow: `<div class="flow-col">
+        <div class="flow-node format-style highlight" style="font-size:12px;line-height:1.8;padding:14px">
+          <div class="label" style="margin-bottom:8px">Haiku 的最終回覆（Markdown）</div>
+          <div style="font-family:var(--font-mono);font-size:11px;white-space:pre-wrap;line-height:1.7">## 📚 「原子習慣」館藏查詢結果
+
+### 1. **原子習慣** (2019)
+James Clear 著；蔡世偉 譯
+![封面](https://books.google.com/...)
+📍 索書號：176.74 C614
+📖 狀態：<strong>可外借</strong>
+
+### 2. **原子習慣** (2023 增訂版)
+James Clear 著
+📍 索書號：176.74 C614-2
+📖 狀態：已借出（預計 4/15 歸還）
+
+🔗 [在圖書館目錄查看更多](https://primo...)</div>
+        </div>
+      </div>`,
+      dataBadge: '品質對比',
+      data: `<div class="data-label">Sonnet vs Haiku+Alignment 回覆品質</div>
+<div class="compare-row">
+  <div class="compare-cell old">
+    <div class="cell-title">Sonnet（無引導）</div>
+    <div style="font-size:11px;line-height:1.6">
+      ✅ 工具選擇正確<br>
+      ✅ 回覆格式佳<br>
+      ✅ 包含封面圖<br>
+      ❌ 成本高 ($3/M)
+    </div>
+  </div>
+  <div class="compare-cell new">
+    <div class="cell-title">Haiku + Alignment</div>
+    <div style="font-size:11px;line-height:1.6">
+      ✅ 工具選擇正確<br>
+      ✅ 回覆格式佳（有模板）<br>
+      ✅ 包含封面圖（有規範）<br>
+      ✅ 成本低 ($0.80/M)
+    </div>
+  </div>
+</div>
+<div class="code-block" style="margin-top:10px"><span class="comment">// 品質保護的三道防線：</span>
+
+<span class="comment">// 1️⃣ ALIGNMENT_RULES</span>
+<span class="comment">//    → 確保選對工具、填對參數</span>
+
+<span class="comment">// 2️⃣ Few-shot 範例 (Top-9)</span>
+<span class="comment">//    → 用相似的歷史案例「教」Haiku</span>
+
+<span class="comment">// 3️⃣ RESPONSE_FORMAT_RULES</span>
+<span class="comment">//    → 確保回覆格式一致、結構化</span>
+
+<span class="comment">// 結果：73% 成本節省 + 品質相當</span></div>`
+    },
+    {
+      phase: 'format', desc: '<strong>完整流程總結</strong>：從 Sonnet 直接呼叫 → Haiku + Alignment 三道防線（規則 + 範例 + 格式），以 73% 的成本節省達到相近的品質。核心洞察：<strong>用數據（trace）教小模型，比用大模型硬扛更划算</strong>。',
+      flowBadge: '總結',
+      flow: `<div class="flow-col">
+        <div style="text-align:center;padding:10px 0">
+          <div style="font-size:18px;font-weight:600;margin-bottom:12px">Haiku Alignment 完整架構</div>
+        </div>
+        <div class="flow-node old-style"><div class="label">User Query</div></div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-node enrich-style"><div class="label">claude-client-aligned.js</div><div class="detail">drop-in replacement for ClaudeClient</div></div>
+        <div class="flow-arrow">↓ enrichSystemPrompt()</div>
+        <div class="flow-node retrieve-style"><div class="label">AlignmentMiddleware</div><div class="detail">embedding 檢索 → Top-9 trace</div></div>
+        <div class="flow-arrow">↓ _buildPrompt()</div>
+        <div class="flow-node build-style"><div class="label">Enriched System Prompt</div><div class="detail">原始 + RULES + FORMAT + Examples</div></div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-node call-style"><div class="label">Claude Haiku API ($0.80/M)</div><div class="detail">tool_use → MCP 執行 → 最終回覆</div></div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-node format-style"><div class="label">結構化 Markdown 回覆</div><div class="detail">書名 + 封面 + 索書號 + 館藏狀態</div></div>
+      </div>`,
+      dataBadge: '已知限制',
+      data: `<div class="data-label">核心數據</div>
+<div class="code-block"><span class="comment">// Trace 資料</span>
+正例：<span class="hl">3,207 筆</span> (Sonnet 歷史工具呼叫)
+負例：<span class="hl">876 筆</span> (不需要工具的查詢)
+
+<span class="comment">// 檢索配置</span>
+模型：Xenova/multilingual-e5-small
+維度：384
+Top-K：9
+
+<span class="comment">// 額外 token 成本</span>
+ALIGNMENT_RULES：~50 tokens
+FORMAT_RULES：~300 tokens
+Few-shot 範例：~1,200 tokens
+<span class="comment">// 每次請求額外 ~$0.0012（可忽略）</span></div>
+<div class="data-label" style="margin-top:10px">已知限制</div>
+<div class="code-block"><span class="comment">// 1. 多語系影響</span>
+<span class="comment">//    trace 都是中文 → 非中文查詢匹配率較低</span>
+
+<span class="comment">// 2. 工具選擇差異</span>
+<span class="comment">//    Haiku 偶爾選不同但合理的替代工具</span>
+
+<span class="comment">// 3. 非 alignment 路徑</span>
+<span class="comment">//    AdminController 仍用原版 ClaudeClient</span>
+<span class="comment">//    （後台管理不需要 few-shot）</span></div>`
+    },
+  ];
+}
+
+function renderStep(idx) {
+  const s = steps[idx];
+  document.getElementById('desc').innerHTML = s.desc;
+  document.getElementById('flowPanel').innerHTML = s.flow;
+  document.getElementById('dataPanel').innerHTML = s.data;
+  document.getElementById('flowBadge').textContent = s.flowBadge || '';
+  document.getElementById('dataBadge').textContent = s.dataBadge || '';
+
+  // Update phase tags
+  const phases = ['old','enrich','retrieve','build','call','format'];
+  const currentPhaseIdx = phases.indexOf(s.phase);
+  document.querySelectorAll('.phase-tag').forEach(el => {
+    const p = el.dataset.phase;
+    const pIdx = phases.indexOf(p);
+    el.classList.remove('active','done');
+    if (p === s.phase) el.classList.add('active');
+    else if (pIdx < currentPhaseIdx) el.classList.add('done');
+  });
+}
+
+function renderInitial() {
+  document.getElementById('desc').textContent = '點擊「下一步 →」開始，對比 Sonnet 原始流程與 Haiku Alignment 優化流程。';
+  document.querySelectorAll('.phase-tag').forEach(el => el.classList.remove('active','done'));
+  document.getElementById('flowPanel').innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--text-secondary);font-size:13px;">流程步驟將在這裡逐步展開</div>';
+  document.getElementById('dataPanel').innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--text-secondary);font-size:13px;">對應的程式碼和資料將在這裡顯示</div>';
+  document.getElementById('flowBadge').textContent = '';
+  document.getElementById('dataBadge').textContent = '';
+}
+
+// === INIT ===
+generateSteps();
+renderInitial();
+updateControls();
+</script>
+</body>
+</html>

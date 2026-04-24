@@ -1,0 +1,16 @@
+# macOS
+.DS_Store
+
+# Microsoft Office lock files (temp files when a document is open)
+~$*.pptx
+~$*.docx
+~$*.xlsx
+
+# Editor swap / backup
+*.swp
+*.swo
+*~
+
+# Scratch / 暫存
+_scratch/
+*.tmp

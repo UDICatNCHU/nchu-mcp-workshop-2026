@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MCP 四層架構全流程 — Running Example 互動式教學動畫</title>
+<style>
+  :root {
+    --bg-primary: #ffffff;
+    --bg-secondary: #f5f4f0;
+    --bg-tertiary: #eae8e2;
+    --text-primary: #1a1a1a;
+    --text-secondary: #6b6b6b;
+    --text-info: #185FA5;
+    --border: rgba(0,0,0,0.12);
+    --border-strong: rgba(0,0,0,0.22);
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, monospace;
+    --layer1: #185FA5; --layer1-bg: #E6F1FB; --layer1-text: #0C447C;
+    --layer2: #7C3AED; --layer2-bg: #EEEDFE; --layer2-text: #3C3489;
+    --layer3: #0D9488; --layer3-bg: #E1F5EE; --layer3-text: #085041;
+    --layer4: #E65100; --layer4-bg: #FFF3E0; --layer4-text: #7C2D12;
+    --arrow-right: #0D9488; --arrow-left: #E65100;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg-primary: #1a1a1a; --bg-secondary: #2a2a28; --bg-tertiary: #353533;
+      --text-primary: #e8e6de; --text-secondary: #9c9a92; --text-info: #85B7EB;
+      --border: rgba(255,255,255,0.12); --border-strong: rgba(255,255,255,0.22);
+      --layer1-bg: #0C447C; --layer1-text: #85B7EB;
+      --layer2-bg: #3C3489; --layer2-text: #AFA9EC;
+      --layer3-bg: #085041; --layer3-text: #5DCAA5;
+      --layer4-bg: #7C2D12; --layer4-text: #F0997B;
+      --arrow-right: #5DCAA5; --arrow-left: #F0997B;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font-sans); background: var(--bg-primary); color: var(--text-primary); padding: 1.5rem 2rem; line-height: 1.6; }
+  .container { max-width: 960px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 500; margin-bottom: 4px; }
+  .subtitle { font-size: 14px; color: var(--text-secondary); margin-bottom: 1.2rem; }
+  .controls { display: flex; align-items: center; gap: 10px; margin-bottom: 0.8rem; flex-wrap: wrap; }
+  .controls button { padding: 6px 14px; border-radius: var(--radius-md); border: 1px solid var(--border-strong); background: transparent; color: var(--text-primary); cursor: pointer; font-size: 13px; font-family: var(--font-sans); transition: background .15s, transform .1s; white-space: nowrap; }
+  .controls button:hover { background: var(--bg-secondary); }
+  .controls button:active { transform: scale(0.97); }
+  .controls button:disabled { opacity: 0.35; cursor: default; }
+  .speed-ctrl { display: flex; align-items: center; gap: 6px; margin-left: 8px; font-size: 12px; color: var(--text-secondary); }
+  .speed-ctrl input[type=range] { width: 80px; accent-color: var(--text-info); }
+  .step-counter { font-size: 12px; color: var(--text-secondary); margin-left: auto; white-space: nowrap; }
+  .step-desc { font-size: 14px; color: var(--text-secondary); line-height: 1.65; min-height: 48px; margin-bottom: 1rem; padding: 10px 14px; background: var(--bg-secondary); border-radius: var(--radius-md); border-left: 3px solid var(--text-info); }
+  .step-desc code { font-family: var(--font-mono); background: var(--bg-tertiary); padding: 1px 5px; border-radius: 4px; font-size: 13px; }
+  .step-desc strong { font-weight: 600; color: var(--text-primary); }
+
+  /* Layer indicator */
+  .layer-bar { display: flex; gap: 4px; margin-bottom: 10px; }
+  .layer-tag { flex: 1; padding: 5px 8px; border-radius: var(--radius-md); font-size: 11px; font-weight: 600; text-align: center; background: var(--bg-secondary); color: var(--text-secondary); border: 1.5px solid var(--border); transition: all .3s; }
+  .layer-tag.active { transform: scale(1.03); }
+  .layer-tag[data-layer="1"].active { background: var(--layer1-bg); color: var(--layer1-text); border-color: var(--layer1); }
+  .layer-tag[data-layer="2"].active { background: var(--layer2-bg); color: var(--layer2-text); border-color: var(--layer2); }
+  .layer-tag[data-layer="3"].active { background: var(--layer3-bg); color: var(--layer3-text); border-color: var(--layer3); }
+  .layer-tag[data-layer="4"].active { background: var(--layer4-bg); color: var(--layer4-text); border-color: var(--layer4); }
+  .layer-tag.done { opacity: 0.5; }
+
+  /* Main visual: two panels */
+  .panels { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 10px; }
+  @media (max-width: 720px) { .panels { grid-template-columns: 1fr; } }
+
+  .panel { border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; background: var(--bg-primary); }
+  .panel-header { padding: 6px 12px; font-size: 12px; font-weight: 600; border-bottom: 1px solid var(--border); background: var(--bg-secondary); display: flex; justify-content: space-between; align-items: center; }
+  .panel-body { padding: 10px 12px; min-height: 200px; max-height: 340px; overflow-y: auto; font-size: 12px; }
+
+  /* Architecture diagram */
+  .arch-block { padding: 8px 10px; margin: 4px 0; border-radius: var(--radius-md); border: 1.5px solid var(--border); transition: all .35s; opacity: 0.45; }
+  .arch-block.active { opacity: 1; transform: scale(1.01); }
+  .arch-block.done { opacity: 0.6; }
+  .arch-block .block-title { font-weight: 700; font-size: 11px; letter-spacing: 0.3px; }
+  .arch-block .block-sub { font-family: var(--font-mono); font-size: 10px; margin-top: 1px; }
+  .arch-block .block-detail { font-size: 10px; color: var(--text-secondary); margin-top: 3px; }
+  .arch-block[data-layer="1"] { border-color: var(--layer1); background: var(--layer1-bg); }
+  .arch-block[data-layer="1"] .block-title { color: var(--layer1-text); }
+  .arch-block[data-layer="2"] { border-color: var(--layer2); background: var(--layer2-bg); }
+  .arch-block[data-layer="2"] .block-title { color: var(--layer2-text); }
+  .arch-block[data-layer="3"] { border-color: var(--layer3); background: var(--layer3-bg); }
+  .arch-block[data-layer="3"] .block-title { color: var(--layer3-text); }
+  .arch-block[data-layer="4"] { border-color: var(--layer4); background: var(--layer4-bg); }
+  .arch-block[data-layer="4"] .block-title { color: var(--layer4-text); }
+
+  .arch-arrow { text-align: center; font-size: 13px; color: var(--text-secondary); padding: 1px 0; transition: color .3s; }
+  .arch-arrow.active { color: var(--text-info); font-weight: bold; }
+
+  /* Data / code panel */
+  .data-section { margin: 6px 0; padding: 8px 10px; border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--bg-secondary); transition: opacity .4s; }
+  .data-section .data-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 3px; }
+  .data-section .data-content { font-family: var(--font-mono); font-size: 11px; white-space: pre-wrap; word-break: break-word; line-height: 1.55; color: var(--text-secondary); max-height: 150px; overflow-y: auto; }
+  .data-section.l1 .data-label { color: var(--layer1); }
+  .data-section.l2 .data-label { color: var(--layer2); }
+  .data-section.l3 .data-label { color: var(--layer3); }
+  .data-section.l4 .data-label { color: var(--layer4); }
+
+  .hl-key { color: var(--text-info); font-weight: 600; }
+  .hl-str { color: var(--arrow-right); }
+  .hl-cmt { color: var(--text-secondary); font-style: italic; }
+  .hl-warn { color: var(--layer4); font-weight: 600; }
+
+  /* Legend */
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; padding-top: 0.8rem; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-secondary); }
+  .legend-item { display: flex; align-items: center; gap: 5px; }
+  .legend-swatch { width: 14px; height: 14px; border-radius: 3px; border: 1px solid var(--border); }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>MCP 四層架構全流程 — Running Example</h1>
+  <p class="subtitle">以 <code>library_search_books("新書")</code> 為例，從 config.json 宣告、Python FastMCP 啟動、Node.js 工具註冊，到 Claude 呼叫工具取得結果的完整旅程</p>
+
+  <div class="controls">
+    <button id="prevBtn" onclick="prev()" disabled>&#8592; 上一步</button>
+    <button id="nextBtn" onclick="next()">下一步 &#8594;</button>
+    <button id="playBtn" onclick="togglePlay()">&#9654; 自動播放</button>
+    <div class="speed-ctrl"><span>速度</span><input type="range" min="0.5" max="3" value="1" step="0.5" id="speedSlider" oninput="updateSpeed(this.value)"><span id="speedVal">1x</span></div>
+    <button onclick="reset()">重置</button>
+    <span class="step-counter" id="stepCounter">步驟 0 / 0</span>
+  </div>
+
+  <div class="step-desc" id="desc">點擊「下一步 →」開始，跟著一次完整的 MCP 工具呼叫走過四層架構。</div>
+
+  <!-- Layer bar -->
+  <div class="layer-bar" id="layerBar">
+    <div class="layer-tag" data-layer="1">① config.json 宣告</div>
+    <div class="layer-tag" data-layer="2">② Python FastMCP</div>
+    <div class="layer-tag" data-layer="3">③ Node.js 連線+註冊</div>
+    <div class="layer-tag" data-layer="4">④ Agentic Loop 呼叫</div>
+  </div>
+
+  <!-- Two panels -->
+  <div class="panels">
+    <!-- Left: architecture stack -->
+    <div class="panel">
+      <div class="panel-header"><span>架構堆疊</span><span id="archBadge" style="font-size:10px;color:var(--text-secondary)"></span></div>
+      <div class="panel-body" id="archPanel"></div>
+    </div>
+    <!-- Right: data / code -->
+    <div class="panel">
+      <div class="panel-header"><span>資料 / 程式碼</span><span id="dataBadge" style="font-size:10px;color:var(--text-secondary)"></span></div>
+      <div class="panel-body" id="dataPanel"></div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-swatch" style="background:var(--layer1-bg);border-color:var(--layer1)"></div>Layer 1：config.json</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:var(--layer2-bg);border-color:var(--layer2)"></div>Layer 2：Python FastMCP</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:var(--layer3-bg);border-color:var(--layer3)"></div>Layer 3：Node.js 連線</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:var(--layer4-bg);border-color:var(--layer4)"></div>Layer 4：Agentic Loop</div>
+  </div>
+</div>
+
+<script>
+// === STEPPER ENGINE ===
+let steps = [], cur = -1, playing = false, timer = null, speed = 1;
+function next() { if (cur >= steps.length-1) return; cur++; renderStep(cur); updateControls(); }
+function prev() { if (cur < 0) return; cur--; if (cur >= 0) renderStep(cur); else renderInitial(); updateControls(); }
+function togglePlay() {
+  if (playing) { stopPlay(); return; }
+  if (cur >= steps.length-1) { cur = -1; renderInitial(); }
+  playing = true; document.getElementById('playBtn').textContent = '⏸ 暫停';
+  timer = setInterval(() => { if (cur >= steps.length-1) { stopPlay(); return; } next(); }, 1800 / speed);
+}
+function stopPlay() { playing = false; clearInterval(timer); timer = null; document.getElementById('playBtn').textContent = '▶ 自動播放'; }
+function updateSpeed(v) { speed = parseFloat(v); document.getElementById('speedVal').textContent = speed+'x'; if (playing) { stopPlay(); togglePlay(); } }
+function reset() { stopPlay(); cur = -1; renderInitial(); updateControls(); }
+function updateControls() {
+  document.getElementById('prevBtn').disabled = cur < 0;
+  document.getElementById('nextBtn').disabled = cur >= steps.length-1;
+  document.getElementById('stepCounter').textContent = '步驟 '+(cur+1)+' / '+steps.length;
+}
+
+// === ARCHITECTURE BLOCKS ===
+const archBlocks = [
+  { id: 'config', layer: '1', title: 'config.json', sub: '38 個 MCP server 宣告', detail: '每個 server = 一個 Python 子程序' },
+  { id: 'env', layer: '1', title: 'processEnvironment()', sub: '${NCHU_MODULES_PATH} → 實際路徑', detail: 'server-connection.js 啟動前替換' },
+  { id: 'spawn', layer: '3', title: 'spawn() × 38', sub: 'Promise.allSettled()', detail: '同時啟動所有 server，一個掛不影響其他' },
+  { id: 'fastmcp', layer: '2', title: 'FastMCP("nchu_library")', sub: 'mcp.run(transport="stdio")', detail: 'Python 端啟動 JSON-RPC server' },
+  { id: 'tool-deco', layer: '2', title: '@mcp.tool() 裝飾器', sub: 'type hints → JSON Schema', detail: 'library_search_books(query: str) → List[Dict]' },
+  { id: 'handshake', layer: '3', title: 'JSON-RPC 握手', sub: 'initialize → initialized → tools/list', detail: 'MCPServerConnection 三步握手' },
+  { id: 'register', layer: '3', title: 'MCPToolManager.registerTools()', sub: 'Map<toolName, {serverName, tool}>', detail: '38 servers 的工具匯集成一個 Map' },
+  { id: 'claude-tools', layer: '3', title: 'getClaudeTools()', sub: '→ Claude API tool definitions', detail: 'inputSchema 轉 Claude 格式' },
+  { id: 'user-query', layer: '4', title: '使用者查詢', sub: '「中興大學圖書館有什麼新書？」', detail: 'POST /api/chat/stream' },
+  { id: 'claude-decide', layer: '4', title: 'Claude Sonnet 決策', sub: 'stop_reason: "tool_use"', detail: '根據 tool definitions 選擇工具' },
+  { id: 'dispatch', layer: '4', title: 'raw-mcp-client dispatch', sub: 'toolManager.getToolInfo() → 找到 server', detail: 'executeToolCall via MCPServerConnection' },
+  { id: 'jsonrpc-call', layer: '3', title: 'tools/call JSON-RPC', sub: 'stdin → Python 子程序', detail: '{ method: "tools/call", params: {name, arguments} }' },
+  { id: 'python-exec', layer: '2', title: 'library_search_books() 執行', sub: '呼叫 Primo API + Google Books API', detail: '即時查詢，回傳 10 筆結果' },
+  { id: 'jsonrpc-result', layer: '3', title: 'JSON-RPC Response', sub: 'stdout → Node.js', detail: 'pendingRequests.get(id).resolve(result)' },
+  { id: 'back-to-claude', layer: '4', title: '結果回到 Claude', sub: 'tool_result 追加到 messages', detail: 'Claude 根據工具結果組織最終回覆' },
+];
+
+// === STEPS ===
+function generateSteps() {
+  steps = [
+    // Layer 1: config.json
+    {
+      layer: 1, activeBlock: 'config', doneBlocks: [],
+      desc: '<strong>Layer 1 — config.json 宣告</strong>：整個系統的起點。config.json 定義了 <strong>38 個 MCP server</strong>，每一筆就是一個要 spawn 的 Python 子程序。以圖書館為例，command 是 <code>bash -c "cd ${NCHU_MODULES_PATH} && .venv/bin/python library_tools/library_api.py"</code>。',
+      dataSections: [
+        { cls: 'l1', label: 'config.json（節錄）', content: `{
+  <span class="hl-key">"mcpServers"</span>: {
+    <span class="hl-key">"nchu_lib_api"</span>: {
+      <span class="hl-key">"command"</span>: <span class="hl-str">"bash"</span>,
+      <span class="hl-key">"args"</span>: [<span class="hl-str">"-c"</span>,
+        <span class="hl-str">"cd \${NCHU_MODULES_PATH} && \\
+         .venv/bin/python library_tools/library_api.py"</span>
+      ],
+      <span class="hl-key">"description"</span>: <span class="hl-str">"中興大學圖書館API"</span>
+    },
+    <span class="hl-cmt">// ...共 38 個 server</span>
+  }
+}` }
+      ],
+      archBadge: '38 servers defined', dataBadge: 'config.json'
+    },
+    {
+      layer: 1, activeBlock: 'env', doneBlocks: ['config'],
+      desc: '<strong>環境變數替換</strong>：<code>processEnvironment()</code> 在 spawn 前把 <code>${NCHU_MODULES_PATH}</code> 替換成實際路徑。這讓部署時不用改 config，只要設環境變數。',
+      dataSections: [
+        { cls: 'l1', label: 'processEnvironment()', content: `<span class="hl-cmt">// server-connection.js</span>
+if (value.startsWith(<span class="hl-str">'\${'</span>) && value.endsWith(<span class="hl-str">'}'</span>)) {
+  const envVar = value.slice(2, -1);
+  processedEnv[key] = process.env[envVar];
+}
+
+<span class="hl-cmt">// 替換結果：</span>
+<span class="hl-str">\${NCHU_MODULES_PATH}</span>
+  → <span class="hl-key">/Users/yaochungfan/agent/library</span>` }
+      ],
+      archBadge: '環境變數', dataBadge: 'server-connection.js'
+    },
+
+    // Layer 3 + 2: spawn & FastMCP
+    {
+      layer: 3, activeBlock: 'spawn', doneBlocks: ['config', 'env'],
+      desc: '<strong>Layer 3 — Node.js spawn 38 個子程序</strong>：<code>raw-mcp-client.js</code> 用 <code>Promise.allSettled()</code> 同時啟動所有 server。每個都是獨立的 Python 程序，一個掛了不會影響其他的。stdio 設為 pipe，讓父子程序可以透過 stdin/stdout 溝通。',
+      dataSections: [
+        { cls: 'l3', label: 'raw-mcp-client.js（啟動邏輯）', content: `<span class="hl-cmt">// 同時啟動 38 個 server</span>
+const results = await <span class="hl-key">Promise.allSettled</span>(
+  servers.map(s => s.connect())
+);
+
+<span class="hl-cmt">// connect() 內部：</span>
+this.process = <span class="hl-key">spawn</span>(config.command, config.args, {
+  <span class="hl-key">stdio</span>: [<span class="hl-str">'pipe'</span>, <span class="hl-str">'pipe'</span>, <span class="hl-str">'pipe'</span>],
+  <span class="hl-key">env</span>: processedEnv
+});` }
+      ],
+      archBadge: '啟動子程序', dataBadge: 'raw-mcp-client.js'
+    },
+    {
+      layer: 2, activeBlock: 'fastmcp', doneBlocks: ['config', 'env', 'spawn'],
+      desc: '<strong>Layer 2 — Python FastMCP 啟動</strong>：每個 <code>*_api.py</code> 底部都有 <code>mcp.run(transport="stdio")</code>。FastMCP 框架啟動後，在 stdin 上監聽 JSON-RPC 請求，透過 stdout 回傳結果。',
+      dataSections: [
+        { cls: 'l2', label: 'library_tools/library_api.py', content: `from mcp.server.fastmcp import FastMCP
+
+mcp = <span class="hl-key">FastMCP</span>(<span class="hl-str">"nchu_library"</span>)
+
+<span class="hl-cmt"># ... 工具定義 ...</span>
+
+if __name__ == <span class="hl-str">"__main__"</span>:
+    mcp.run(<span class="hl-key">transport</span>=<span class="hl-str">"stdio"</span>)
+    <span class="hl-cmt"># ↑ 啟動 JSON-RPC server</span>
+    <span class="hl-cmt">#   監聽 stdin，回應 stdout</span>` }
+      ],
+      archBadge: 'Python 端', dataBadge: 'library_api.py'
+    },
+    {
+      layer: 2, activeBlock: 'tool-deco', doneBlocks: ['config', 'env', 'spawn', 'fastmcp'],
+      desc: '<strong>@mcp.tool() 裝飾器的魔法</strong>：Python type hints <code>(query: str) → List[Dict]</code> 被 FastMCP 自動轉成 JSON Schema。docstring 的第一段變成工具描述。這就是為什麼「加新工具只要寫一個 Python 函式」—— 不用碰 Node.js 的任何程式碼。',
+      dataSections: [
+        { cls: 'l2', label: 'Python 端定義', content: `<span class="hl-key">@mcp.tool()</span>
+def <span class="hl-key">library_search_books</span>(query: <span class="hl-str">str</span>) -> List[Dict]:
+    <span class="hl-str">"""Search books from NCHU Library
+    using the Primo API with Google Books
+    cover images."""</span>
+    <span class="hl-cmt"># 實作邏輯...</span>` },
+        { cls: 'l3', label: '自動轉換後的 JSON Schema（tools/list 回應）', content: `{
+  <span class="hl-key">"name"</span>: <span class="hl-str">"library_search_books"</span>,
+  <span class="hl-key">"description"</span>: <span class="hl-str">"Search books from NCHU Library..."</span>,
+  <span class="hl-key">"inputSchema"</span>: {
+    <span class="hl-key">"type"</span>: <span class="hl-str">"object"</span>,
+    <span class="hl-key">"properties"</span>: {
+      <span class="hl-key">"query"</span>: { <span class="hl-key">"type"</span>: <span class="hl-str">"string"</span> }
+    },
+    <span class="hl-key">"required"</span>: [<span class="hl-str">"query"</span>]
+  }
+}` }
+      ],
+      archBadge: 'type hints → schema', dataBadge: '自動轉換'
+    },
+
+    // Layer 3: handshake + registration
+    {
+      layer: 3, activeBlock: 'handshake', doneBlocks: ['config', 'env', 'spawn', 'fastmcp', 'tool-deco'],
+      desc: '<strong>Layer 3 — JSON-RPC 三步握手</strong>：Node.js 送 <code>initialize</code> → Python 回 capabilities → Node.js 送 <code>notifications/initialized</code> → 再送 <code>tools/list</code> → Python 回報所有工具。到這裡 <code>isConnected = true</code>。',
+      dataSections: [
+        { cls: 'l3', label: '握手時序', content: `<span class="hl-key">Node.js</span>        stdin→      <span class="hl-key">Python</span>
+   │                              │
+   ├─ initialize (id:1) ────────→ │
+   │                              │
+   │ ←──── capabilities (id:1) ──┤
+   │                              │
+   │  <span class="hl-cmt">ready = true</span>                │
+   │  <span class="hl-warn">isConnected = false（還沒！）</span> │
+   │                              │
+   ├─ notifications/initialized ─→│
+   │  <span class="hl-cmt">（單向通知，無 id）</span>          │
+   │                              │
+   ├─ tools/list (id:3) ────────→ │
+   │                              │
+   │ ←───── 3 tools (id:3) ──────┤
+   │                              │
+   │  <span class="hl-key">isConnected = true ✓</span>        │` }
+      ],
+      archBadge: '握手完成', dataBadge: '時序圖'
+    },
+    {
+      layer: 3, activeBlock: 'register', doneBlocks: ['config', 'env', 'spawn', 'fastmcp', 'tool-deco', 'handshake'],
+      desc: '<strong>MCPToolManager.registerTools()</strong>：38 個 server 各自回報的工具，全部匯集到一個 <code>Map&lt;toolName, {serverName, tool}&gt;</code>。這個 Map 是後續工具查詢和呼叫的核心查表結構。',
+      dataSections: [
+        { cls: 'l3', label: 'tool-manager.js', content: `<span class="hl-cmt">// 38 個 server 各自 registerTools</span>
+registerTools(serverName, tools) {
+  for (const tool of tools) {
+    this.availableTools.<span class="hl-key">set</span>(tool.name, {
+      <span class="hl-key">serverName</span>,  <span class="hl-cmt">// 記住屬於哪個 server</span>
+      tool          <span class="hl-cmt">// name + description + inputSchema</span>
+    });
+  }
+}
+
+<span class="hl-cmt">// 最終結果（概念）：</span>
+Map {
+  <span class="hl-str">"library_search_books"</span> → {server: <span class="hl-str">"nchu_lib_api"</span>},
+  <span class="hl-str">"search_courses"</span>      → {server: <span class="hl-str">"nchu_course_search"</span>},
+  <span class="hl-str">"search_regulations"</span>  → {server: <span class="hl-str">"nchu_oaa_reg"</span>},
+  <span class="hl-cmt">// ...共 30+ 個工具</span>
+}` }
+      ],
+      archBadge: '工具匯集', dataBadge: 'tool-manager.js'
+    },
+    {
+      layer: 3, activeBlock: 'claude-tools', doneBlocks: ['config', 'env', 'spawn', 'fastmcp', 'tool-deco', 'handshake', 'register'],
+      desc: '<strong>getClaudeTools() 格式轉換</strong>：把 MCP 的 <code>inputSchema</code> 轉成 Claude API 要求的 <code>input_schema</code>。這個陣列會跟著每次 API 呼叫一起送給 Claude，讓它知道有哪些工具可以用。',
+      dataSections: [
+        { cls: 'l3', label: 'getClaudeTools() 輸出', content: `<span class="hl-cmt">// 送給 Claude API 的 tools 參數</span>
+[
+  {
+    <span class="hl-key">"name"</span>: <span class="hl-str">"library_search_books"</span>,
+    <span class="hl-key">"description"</span>: <span class="hl-str">"Search books from NCHU Library..."</span>,
+    <span class="hl-key">"input_schema"</span>: {
+      <span class="hl-key">"type"</span>: <span class="hl-str">"object"</span>,
+      <span class="hl-key">"properties"</span>: {
+        <span class="hl-key">"query"</span>: { <span class="hl-key">"type"</span>: <span class="hl-str">"string"</span> }
+      }
+    }
+  },
+  <span class="hl-cmt">// ...30+ 個工具定義</span>
+]` }
+      ],
+      archBadge: '→ Claude API', dataBadge: 'tool definitions'
+    },
+
+    // Layer 4: Agentic loop
+    {
+      layer: 4, activeBlock: 'user-query', doneBlocks: ['config', 'env', 'spawn', 'fastmcp', 'tool-deco', 'handshake', 'register', 'claude-tools'],
+      desc: '<strong>Layer 4 — 使用者查詢進入 Agentic Loop</strong>：使用者問「中興大學圖書館有什麼新書？」。ChatController 注入時間+登入資訊後，raw-mcp-client 建立 messages 陣列，帶著 30+ 個 tool definitions 送給 Claude。',
+      dataSections: [
+        { cls: 'l4', label: 'messages 陣列', content: `<span class="hl-cmt">// 送給 Claude API</span>
+{
+  <span class="hl-key">"model"</span>: <span class="hl-str">"claude-sonnet-..."</span>,
+  <span class="hl-key">"tools"</span>: [ <span class="hl-cmt">...30+ tool definitions</span> ],
+  <span class="hl-key">"messages"</span>: [
+    { <span class="hl-key">"role"</span>: <span class="hl-str">"user"</span>,
+      <span class="hl-key">"content"</span>: <span class="hl-str">"中興大學圖書館有什麼新書？"</span> }
+  ]
+}` }
+      ],
+      archBadge: '第 1 輪', dataBadge: 'Claude API request'
+    },
+    {
+      layer: 4, activeBlock: 'claude-decide', doneBlocks: ['config', 'env', 'spawn', 'fastmcp', 'tool-deco', 'handshake', 'register', 'claude-tools', 'user-query'],
+      desc: '<strong>Claude 決定呼叫工具</strong>：Sonnet 分析 30+ 個工具的 description，判斷 <code>library_search_books</code> 最適合回答這個問題。回傳 <code>stop_reason: "tool_use"</code>，附帶工具名稱和參數。',
+      dataSections: [
+        { cls: 'l4', label: 'Claude API 回應', content: `{
+  <span class="hl-key">"stop_reason"</span>: <span class="hl-warn">"tool_use"</span>,
+  <span class="hl-key">"content"</span>: [
+    { <span class="hl-key">"type"</span>: <span class="hl-str">"text"</span>,
+      <span class="hl-key">"text"</span>: <span class="hl-str">"我來幫你查詢圖書館的新書。"</span> },
+    { <span class="hl-key">"type"</span>: <span class="hl-warn">"tool_use"</span>,
+      <span class="hl-key">"id"</span>: <span class="hl-str">"toolu_01abc..."</span>,
+      <span class="hl-key">"name"</span>: <span class="hl-str">"library_search_books"</span>,
+      <span class="hl-key">"input"</span>: { <span class="hl-key">"query"</span>: <span class="hl-str">"新書"</span> } }
+  ]
+}` }
+      ],
+      archBadge: 'tool_use', dataBadge: 'Claude response'
+    },
+    {
+      layer: 4, activeBlock: 'dispatch', doneBlocks: ['config', 'env', 'spawn', 'fastmcp', 'tool-deco', 'handshake', 'register', 'claude-tools', 'user-query', 'claude-decide'],
+      desc: '<strong>raw-mcp-client dispatch</strong>：偵測到 tool_use → 用 <code>toolManager.getToolInfo("library_search_books")</code> 查 Map → 找到它屬於 <code>nchu_lib_api</code> server → 拿到對應的 <code>MCPServerConnection</code> 實例 → 呼叫 <code>executeToolCall()</code>。',
+      dataSections: [
+        { cls: 'l4', label: 'raw-mcp-client.js dispatch 邏輯', content: `<span class="hl-cmt">// 1. 從 Map 查找工具屬於哪個 server</span>
+const toolInfo = toolManager.<span class="hl-key">getToolInfo</span>(
+  <span class="hl-str">"library_search_books"</span>
+);
+<span class="hl-cmt">// → { serverName: "nchu_lib_api", tool: {...} }</span>
+
+<span class="hl-cmt">// 2. 取得對應的 MCPServerConnection</span>
+const server = connections[toolInfo.serverName];
+
+<span class="hl-cmt">// 3. 執行工具呼叫（JSON-RPC over stdio）</span>
+const result = await server.<span class="hl-key">executeToolCall</span>(
+  <span class="hl-str">"library_search_books"</span>,
+  { <span class="hl-key">query</span>: <span class="hl-str">"新書"</span> }
+);` }
+      ],
+      archBadge: 'dispatch', dataBadge: 'raw-mcp-client.js'
+    },
+    {
+      layer: 3, activeBlock: 'jsonrpc-call', doneBlocks: ['config', 'env', 'spawn', 'fastmcp', 'tool-deco', 'handshake', 'register', 'claude-tools', 'user-query', 'claude-decide', 'dispatch'],
+      desc: '<strong>JSON-RPC tools/call</strong>：<code>executeToolCall()</code> 把請求寫入子程序的 stdin，同時在 <code>pendingRequests</code> Map 存入 resolve/reject callback 和 30 秒 timeout。',
+      dataSections: [
+        { cls: 'l3', label: 'stdin → Python', content: `{
+  <span class="hl-key">"jsonrpc"</span>: <span class="hl-str">"2.0"</span>,
+  <span class="hl-key">"id"</span>: 4,
+  <span class="hl-key">"method"</span>: <span class="hl-str">"tools/call"</span>,
+  <span class="hl-key">"params"</span>: {
+    <span class="hl-key">"name"</span>: <span class="hl-str">"library_search_books"</span>,
+    <span class="hl-key">"arguments"</span>: { <span class="hl-key">"query"</span>: <span class="hl-str">"新書"</span> }
+  }
+}
+
+<span class="hl-cmt">// 同時存入 pendingRequests：</span>
+pendingRequests.set(4, {
+  resolve, reject,
+  timeout: setTimeout(30000),
+  toolName: <span class="hl-str">"library_search_books"</span>
+});` }
+      ],
+      archBadge: 'stdin →', dataBadge: 'JSON-RPC request'
+    },
+    {
+      layer: 2, activeBlock: 'python-exec', doneBlocks: ['config', 'env', 'spawn', 'fastmcp', 'tool-deco', 'handshake', 'register', 'claude-tools', 'user-query', 'claude-decide', 'dispatch', 'jsonrpc-call'],
+      desc: '<strong>Python 端執行 library_search_books()</strong>：FastMCP 收到 tools/call → 找到 <code>library_search_books</code> 函式 → 傳入 <code>query="新書"</code>。函式即時呼叫 NCHU Primo API 搜書，再呼叫 Google Books API 取封面圖片，回傳 10 筆結果。',
+      dataSections: [
+        { cls: 'l2', label: 'library_api.py 執行流程', content: `<span class="hl-key">@mcp.tool()</span>
+def library_search_books(query=<span class="hl-str">"新書"</span>):
+
+  <span class="hl-cmt"># 1. 呼叫 NCHU Primo API</span>
+  url = <span class="hl-str">"https://nchu.primo.exlibrisgroup.com/
+         primaws/rest/pub/pnxs?q=..."</span>
+  response = requests.get(url)
+
+  <span class="hl-cmt"># 2. 解析每筆結果</span>
+  for doc in data["docs"]:
+    title  = doc["pnx"]["display"]["title"][0]
+    creator = doc["pnx"]["display"]["creator"][0]
+
+    <span class="hl-cmt"># 3. 呼叫 Google Books API 取封面</span>
+    cover = get_google_books_cover(title, creator)
+
+    results.append({
+      <span class="hl-key">"title"</span>: title,
+      <span class="hl-key">"creator"</span>: creator,
+      <span class="hl-key">"link"</span>: alma_link,
+      <span class="hl-key">"cover_images"</span>: cover
+    })
+
+  return results  <span class="hl-cmt"># 10 筆</span>` }
+      ],
+      archBadge: 'Primo + Google Books', dataBadge: 'library_api.py'
+    },
+    {
+      layer: 3, activeBlock: 'jsonrpc-result', doneBlocks: ['config', 'env', 'spawn', 'fastmcp', 'tool-deco', 'handshake', 'register', 'claude-tools', 'user-query', 'claude-decide', 'dispatch', 'jsonrpc-call', 'python-exec'],
+      desc: '<strong>JSON-RPC Response 回到 Node.js</strong>：Python stdout 回傳結果 → <code>handleStdout()</code> 行緩衝解析 → <code>handleToolCallResponse()</code> 用 id=4 從 <code>pendingRequests</code> Map 配對 → 清除 timeout → <code>resolve(result)</code>。',
+      dataSections: [
+        { cls: 'l3', label: 'stdout ← Python', content: `{
+  <span class="hl-key">"id"</span>: 4,
+  <span class="hl-key">"result"</span>: {
+    <span class="hl-key">"content"</span>: [{
+      <span class="hl-key">"type"</span>: <span class="hl-str">"text"</span>,
+      <span class="hl-key">"text"</span>: <span class="hl-str">"[
+  {title:'深度學習入門', creator:'王大明',
+   link:'https://nchu.primo...', cover:'https://...'},
+  {title:'量子計算導論', creator:'李小華', ...},
+  ...共 10 筆
+]"</span>
+    }]
+  }
+}
+
+<span class="hl-cmt">// handleToolCallResponse():</span>
+const pending = pendingRequests.<span class="hl-key">get</span>(4);
+clearTimeout(pending.timeout);
+pendingRequests.<span class="hl-key">delete</span>(4);
+pending.<span class="hl-key">resolve</span>(result.content);` }
+      ],
+      archBadge: '← stdout', dataBadge: 'JSON-RPC response'
+    },
+    {
+      layer: 4, activeBlock: 'back-to-claude', doneBlocks: ['config', 'env', 'spawn', 'fastmcp', 'tool-deco', 'handshake', 'register', 'claude-tools', 'user-query', 'claude-decide', 'dispatch', 'jsonrpc-call', 'python-exec', 'jsonrpc-result'],
+      desc: '<strong>結果回到 Agentic Loop</strong>：工具結果被包裝成 <code>tool_result</code> 追加到 messages → 進入第 2 輪迭代送回 Claude → Claude 根據 10 筆書籍資料組織結構化的 Markdown 回覆 → <code>stop_reason: "end_turn"</code> → SSE 串流給用戶。<strong>整個四層架構走完一圈！</strong>',
+      dataSections: [
+        { cls: 'l4', label: 'messages 陣列（第 2 輪）', content: `messages.push(
+  <span class="hl-cmt">// Assistant 的 tool_use</span>
+  { <span class="hl-key">role</span>: <span class="hl-str">"assistant"</span>, content: [
+    { type: <span class="hl-str">"text"</span>, text: <span class="hl-str">"我來幫你查詢..."</span> },
+    { type: <span class="hl-warn">"tool_use"</span>, name: <span class="hl-str">"library_search_books"</span>,
+      input: {query: <span class="hl-str">"新書"</span>} }
+  ]},
+  <span class="hl-cmt">// 工具結果</span>
+  { <span class="hl-key">role</span>: <span class="hl-str">"user"</span>, content: [
+    { type: <span class="hl-warn">"tool_result"</span>,
+      tool_use_id: <span class="hl-str">"toolu_01abc..."</span>,
+      content: <span class="hl-str">"[{title:'深度學習入門',...},...]"</span> }
+  ]}
+);
+
+<span class="hl-cmt">// → 送回 Claude，第 2 輪 → end_turn → SSE 串流</span>
+<span class="hl-key">// 🎉 四層架構走完一圈！</span>` }
+      ],
+      archBadge: '完成！', dataBadge: '→ Claude → 用戶'
+    },
+  ];
+}
+
+// === RENDERING ===
+function renderStep(idx) {
+  const s = steps[idx];
+  document.getElementById('desc').innerHTML = s.desc;
+
+  // Layer bar
+  document.querySelectorAll('.layer-tag').forEach(el => {
+    const l = parseInt(el.dataset.layer);
+    el.classList.remove('active','done');
+    if (l === s.layer) el.classList.add('active');
+    // Mark earlier layers as done based on progress
+    const layerOrder = [1,3,2,3,4]; // rough order
+    if (idx > 7 && l <= 3) el.classList.add('done');
+    else if (idx > 1 && l === 1) el.classList.add('done');
+  });
+
+  // Architecture panel
+  const archEl = document.getElementById('archPanel');
+  archEl.innerHTML = '';
+  archBlocks.forEach((b, i) => {
+    const isActive = b.id === s.activeBlock;
+    const isDone = s.doneBlocks.includes(b.id);
+    // Only show blocks up to current progress + a couple ahead
+    const blockIdx = archBlocks.findIndex(x => x.id === s.activeBlock);
+    if (i > blockIdx + 1) return; // don't show future blocks
+
+    const div = document.createElement('div');
+    div.className = `arch-block`;
+    div.dataset.layer = b.layer;
+    if (isActive) div.classList.add('active');
+    else if (isDone) div.classList.add('done');
+    div.innerHTML = `<div class="block-title">${b.title}</div><div class="block-sub">${b.sub}</div><div class="block-detail">${b.detail}</div>`;
+    archEl.appendChild(div);
+
+    if (i <= blockIdx) {
+      const arrow = document.createElement('div');
+      arrow.className = 'arch-arrow' + (isDone || isActive ? ' active' : '');
+      arrow.textContent = '↓';
+      archEl.appendChild(arrow);
+    }
+  });
+  document.getElementById('archBadge').textContent = s.archBadge;
+
+  // Data panel
+  const dataEl = document.getElementById('dataPanel');
+  dataEl.innerHTML = '';
+  (s.dataSections || []).forEach(d => {
+    const sec = document.createElement('div');
+    sec.className = `data-section ${d.cls}`;
+    sec.innerHTML = `<div class="data-label">${d.label}</div><div class="data-content">${d.content}</div>`;
+    dataEl.appendChild(sec);
+  });
+  document.getElementById('dataBadge').textContent = s.dataBadge;
+}
+
+function renderInitial() {
+  document.getElementById('desc').textContent = '點擊「下一步 →」開始，跟著一次完整的 MCP 工具呼叫走過四層架構。';
+  document.querySelectorAll('.layer-tag').forEach(el => el.classList.remove('active','done'));
+  document.getElementById('archPanel').innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--text-secondary);font-size:13px;">四層架構堆疊將在這裡逐步展開</div>';
+  document.getElementById('dataPanel').innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--text-secondary);font-size:13px;">對應的程式碼和資料將在這裡顯示</div>';
+  document.getElementById('archBadge').textContent = '';
+  document.getElementById('dataBadge').textContent = '';
+}
+
+// === INIT ===
+generateSteps();
+renderInitial();
+updateControls();
+</script>
+</body>
+</html>

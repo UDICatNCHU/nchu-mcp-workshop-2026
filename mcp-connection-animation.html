@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MCP Server Connection 握手流程 — 互動式教學動畫</title>
+<style>
+  :root {
+    --bg-primary: #ffffff;
+    --bg-secondary: #f5f4f0;
+    --bg-tertiary: #eae8e2;
+    --text-primary: #1a1a1a;
+    --text-secondary: #6b6b6b;
+    --text-info: #185FA5;
+    --border: rgba(0,0,0,0.12);
+    --border-strong: rgba(0,0,0,0.22);
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, monospace;
+    --color-default: #E6F1FB;
+    --color-active: #FAEEDA;
+    --color-compare: #FAECE7;
+    --color-sorted: #E1F5EE;
+    --color-pivot: #EEEDFE;
+    --text-on-default: #0C447C;
+    --text-on-active: #633806;
+    --text-on-compare: #712B13;
+    --text-on-sorted: #085041;
+    --text-on-pivot: #3C3489;
+    /* Custom */
+    --node-parent: #185FA5;
+    --node-child: #7C3AED;
+    --arrow-right: #0D9488;
+    --arrow-left: #E65100;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg-primary: #1a1a1a;
+      --bg-secondary: #2a2a28;
+      --bg-tertiary: #353533;
+      --text-primary: #e8e6de;
+      --text-secondary: #9c9a92;
+      --text-info: #85B7EB;
+      --border: rgba(255,255,255,0.12);
+      --border-strong: rgba(255,255,255,0.22);
+      --color-default: #0C447C;
+      --color-active: #633806;
+      --color-compare: #712B13;
+      --color-sorted: #085041;
+      --color-pivot: #3C3489;
+      --text-on-default: #85B7EB;
+      --text-on-active: #FAC775;
+      --text-on-compare: #F0997B;
+      --text-on-sorted: #5DCAA5;
+      --text-on-pivot: #AFA9EC;
+      --node-parent: #85B7EB;
+      --node-child: #AFA9EC;
+      --arrow-right: #5DCAA5;
+      --arrow-left: #F0997B;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: var(--font-sans);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    padding: 2rem;
+    line-height: 1.6;
+  }
+  .container { max-width: 920px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 500; margin-bottom: 4px; }
+  .subtitle { font-size: 14px; color: var(--text-secondary); margin-bottom: 1.5rem; }
+
+  /* Controls */
+  .controls {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 1rem; flex-wrap: wrap;
+  }
+  .controls button {
+    padding: 6px 14px; border-radius: var(--radius-md);
+    border: 1px solid var(--border-strong); background: transparent;
+    color: var(--text-primary); cursor: pointer; font-size: 13px;
+    font-family: var(--font-sans); transition: background .15s, transform .1s;
+    white-space: nowrap;
+  }
+  .controls button:hover { background: var(--bg-secondary); }
+  .controls button:active { transform: scale(0.97); }
+  .controls button:disabled { opacity: 0.35; cursor: default; }
+  .speed-ctrl {
+    display: flex; align-items: center; gap: 6px;
+    margin-left: 8px; font-size: 12px; color: var(--text-secondary);
+  }
+  .speed-ctrl input[type=range] { width: 80px; accent-color: var(--text-info); }
+  .step-counter {
+    font-size: 12px; color: var(--text-secondary);
+    margin-left: auto; white-space: nowrap;
+  }
+
+  /* Step description */
+  .step-desc {
+    font-size: 14px; color: var(--text-secondary); line-height: 1.65;
+    min-height: 52px; margin-bottom: 1.2rem;
+    padding: 10px 14px;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-md);
+    border-left: 3px solid var(--text-info);
+  }
+  .step-desc code {
+    font-family: var(--font-mono); background: var(--bg-tertiary);
+    padding: 1px 5px; border-radius: 4px; font-size: 13px;
+  }
+  .step-desc strong { font-weight: 600; color: var(--text-primary); }
+
+  .visual { margin-bottom: 1.5rem; }
+
+  /* === Swim-lane diagram === */
+  .swimlane {
+    position: relative;
+    display: grid;
+    grid-template-columns: 140px 1fr 140px;
+    gap: 0;
+    min-height: 400px;
+  }
+
+  .lane {
+    border-right: 1px dashed var(--border);
+    padding: 0 8px;
+    position: relative;
+  }
+  .lane:last-child { border-right: none; }
+
+  .lane-header {
+    text-align: center;
+    padding: 10px 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+    border-bottom: 2px solid var(--border-strong);
+    margin-bottom: 8px;
+    position: sticky;
+    top: 0;
+    background: var(--bg-primary);
+    z-index: 2;
+  }
+  .lane-header .lane-sub {
+    font-size: 10px;
+    font-weight: 400;
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+  }
+
+  .lane-header.parent { border-bottom-color: var(--node-parent); }
+  .lane-header.child { border-bottom-color: var(--node-child); }
+
+  /* Message rows in the middle lane */
+  .msg-area {
+    border-right: 1px dashed var(--border);
+    border-left: 1px dashed var(--border);
+    position: relative;
+    padding: 0;
+  }
+  .msg-area .lane-header {
+    border-bottom-color: var(--border-strong);
+  }
+
+  .msg-row {
+    display: flex;
+    align-items: center;
+    padding: 6px 8px;
+    margin: 4px 0;
+    min-height: 42px;
+    opacity: 0;
+    transform: translateY(6px);
+    transition: opacity 0.4s ease, transform 0.4s ease;
+    position: relative;
+  }
+  .msg-row.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .msg-row.dimmed {
+    opacity: 0.3;
+  }
+
+  /* Arrow direction indicator */
+  .msg-arrow {
+    position: absolute;
+    font-size: 22px;
+    font-weight: bold;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+  .msg-arrow.right {
+    left: -2px;
+    color: var(--arrow-right);
+  }
+  .msg-arrow.left {
+    right: -2px;
+    color: var(--arrow-left);
+  }
+
+  .msg-bubble {
+    flex: 1;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 6px 10px;
+    margin: 0 16px;
+    position: relative;
+  }
+  .msg-bubble.req { border-left: 3px solid var(--arrow-right); }
+  .msg-bubble.res { border-left: 3px solid var(--arrow-left); }
+  .msg-bubble.notify { border-left: 3px solid var(--text-info); }
+
+  .msg-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 2px;
+  }
+  .msg-label.req { color: var(--arrow-right); }
+  .msg-label.res { color: var(--arrow-left); }
+  .msg-label.notify { color: var(--text-info); }
+
+  .msg-method {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .msg-detail {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-top: 2px;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  /* State indicators on lanes */
+  .state-box {
+    margin: 4px 2px;
+    padding: 6px 8px;
+    border-radius: var(--radius-md);
+    font-size: 11px;
+    text-align: center;
+    transition: opacity 0.3s, background 0.3s;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.4s, transform 0.4s;
+  }
+  .state-box.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .state-box .state-label {
+    font-weight: 600;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-bottom: 2px;
+  }
+  .state-box .state-val {
+    font-family: var(--font-mono);
+    font-size: 11px;
+  }
+
+  .state-box.waiting { background: var(--color-active); color: var(--text-on-active); }
+  .state-box.success { background: var(--color-sorted); color: var(--text-on-sorted); }
+  .state-box.processing { background: var(--color-pivot); color: var(--text-on-pivot); }
+  .state-box.info { background: var(--color-default); color: var(--text-on-default); }
+  .state-box.error { background: var(--color-compare); color: var(--text-on-compare); }
+
+  /* Code block for JSON */
+  .json-block {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 10px 14px;
+    margin: 8px 0;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-secondary);
+    white-space: pre-wrap;
+    line-height: 1.55;
+    max-height: 140px;
+    overflow-y: auto;
+    transition: opacity 0.4s;
+  }
+  .json-block .json-key { color: var(--text-info); }
+  .json-block .json-str { color: var(--arrow-right); }
+  .json-block .json-num { color: var(--arrow-left); }
+
+  /* Phase indicator */
+  .phase-bar {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 12px;
+  }
+  .phase-item {
+    flex: 1;
+    padding: 6px 10px;
+    border-radius: var(--radius-md);
+    font-size: 11px;
+    font-weight: 600;
+    text-align: center;
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+    transition: background 0.3s, color 0.3s, border-color 0.3s;
+  }
+  .phase-item.active {
+    background: var(--color-default);
+    color: var(--text-on-default);
+    border-color: var(--text-info);
+  }
+  .phase-item.done {
+    background: var(--color-sorted);
+    color: var(--text-on-sorted);
+    border-color: var(--text-on-sorted);
+  }
+
+  /* Legend */
+  .legend {
+    display: flex; gap: 14px; flex-wrap: wrap;
+    padding-top: 1rem; border-top: 1px solid var(--border);
+  }
+  .legend-item {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 12px; color: var(--text-secondary);
+  }
+  .legend-swatch {
+    width: 14px; height: 14px; border-radius: 3px;
+    border: 1px solid var(--border);
+  }
+  .legend-line {
+    width: 18px; height: 3px; border-radius: 2px;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>MCP Server Connection — 握手流程 Running Example</h1>
+  <p class="subtitle">以 <code>server-connection.js</code> 的程式碼為主，逐步走過 Node.js 父程序與 Python MCP 子程序之間的 JSON-RPC 2.0 over stdio 通訊過程</p>
+
+  <div class="controls">
+    <button id="prevBtn" onclick="prev()" disabled>&#8592; 上一步</button>
+    <button id="nextBtn" onclick="next()">下一步 &#8594;</button>
+    <button id="playBtn" onclick="togglePlay()">&#9654; 自動播放</button>
+    <div class="speed-ctrl">
+      <span>速度</span>
+      <input type="range" min="0.5" max="3" value="1" step="0.5"
+             id="speedSlider" oninput="updateSpeed(this.value)">
+      <span id="speedVal">1x</span>
+    </div>
+    <button onclick="reset()">重置</button>
+    <span class="step-counter" id="stepCounter">步驟 0 / 0</span>
+  </div>
+
+  <div class="step-desc" id="desc">點擊「下一步 →」開始，跟著 <code>MCPServerConnection</code> 的程式碼走過一次完整的握手流程。</div>
+
+  <div class="visual" id="visual">
+    <!-- Phase bar -->
+    <div class="phase-bar" id="phaseBar">
+      <div class="phase-item" data-phase="spawn">① spawn 子程序</div>
+      <div class="phase-item" data-phase="init">② initialize 握手</div>
+      <div class="phase-item" data-phase="tools">③ 載入工具列表</div>
+      <div class="phase-item" data-phase="call">④ 工具呼叫</div>
+    </div>
+
+    <!-- Swim-lane diagram -->
+    <div class="swimlane">
+      <!-- Left lane: Node.js parent -->
+      <div class="lane" id="parentLane">
+        <div class="lane-header parent">
+          Node.js 父程序<br>
+          <span class="lane-sub">raw-mcp-client.js</span>
+        </div>
+        <div id="parentStates"></div>
+      </div>
+
+      <!-- Middle: messages -->
+      <div class="msg-area" id="msgLane">
+        <div class="lane-header">
+          stdio 通道<br>
+          <span class="lane-sub">stdin → / ← stdout</span>
+        </div>
+        <div id="msgArea"></div>
+      </div>
+
+      <!-- Right lane: Python child -->
+      <div class="lane" id="childLane">
+        <div class="lane-header child">
+          Python 子程序<br>
+          <span class="lane-sub">MCP Server</span>
+        </div>
+        <div id="childStates"></div>
+      </div>
+    </div>
+
+    <!-- JSON detail block -->
+    <div class="json-block" id="jsonBlock" style="display:none;"></div>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item">
+      <div class="legend-line" style="background:var(--arrow-right)"></div>Request（父→子）
+    </div>
+    <div class="legend-item">
+      <div class="legend-line" style="background:var(--arrow-left)"></div>Response（子→父）
+    </div>
+    <div class="legend-item">
+      <div class="legend-line" style="background:var(--text-info)"></div>Notification（單向）
+    </div>
+    <div class="legend-item">
+      <div class="legend-swatch" style="background:var(--color-active)"></div>等待中
+    </div>
+    <div class="legend-item">
+      <div class="legend-swatch" style="background:var(--color-sorted)"></div>完成
+    </div>
+    <div class="legend-item">
+      <div class="legend-swatch" style="background:var(--color-pivot)"></div>處理中
+    </div>
+  </div>
+</div>
+
+<script>
+// === STEPPER ENGINE ===
+let steps = [];
+let cur = -1;
+let playing = false;
+let timer = null;
+let speed = 1;
+
+function next() {
+  if (cur >= steps.length - 1) return;
+  cur++;
+  renderStep(cur);
+  updateControls();
+}
+function prev() {
+  if (cur < 0) return;
+  cur--;
+  if (cur >= 0) renderStep(cur);
+  else renderInitial();
+  updateControls();
+}
+function togglePlay() {
+  if (playing) { stopPlay(); return; }
+  if (cur >= steps.length - 1) { cur = -1; renderInitial(); }
+  playing = true;
+  document.getElementById('playBtn').textContent = '⏸ 暫停';
+  timer = setInterval(() => {
+    if (cur >= steps.length - 1) { stopPlay(); return; }
+    next();
+  }, 1600 / speed);
+}
+function stopPlay() {
+  playing = false;
+  clearInterval(timer); timer = null;
+  document.getElementById('playBtn').textContent = '▶ 自動播放';
+}
+function updateSpeed(v) {
+  speed = parseFloat(v);
+  document.getElementById('speedVal').textContent = speed + 'x';
+  if (playing) { stopPlay(); togglePlay(); }
+}
+function reset() {
+  stopPlay();
+  cur = -1;
+  renderInitial();
+  updateControls();
+}
+function updateControls() {
+  document.getElementById('prevBtn').disabled = cur < 0;
+  document.getElementById('nextBtn').disabled = cur >= steps.length - 1;
+  document.getElementById('stepCounter').textContent = '步驟 ' + (cur + 1) + ' / ' + steps.length;
+}
+
+// === STEP DATA ===
+function generateSteps() {
+  steps = [
+    // Phase 1: spawn
+    {
+      phase: 'spawn',
+      desc: '<strong>spawn 子程序</strong>：<code>connect()</code> 呼叫 <code>child_process.spawn()</code>，根據 <code>config.json</code> 的 command 和 args 啟動一個 Python 程序。stdio 設為 <code>[\'pipe\',\'pipe\',\'pipe\']</code>，讓父程序可以讀寫子程序的 stdin/stdout。',
+      parentStates: [
+        { cls: 'processing', label: '執行', val: 'spawn(config.command, config.args)' },
+      ],
+      childStates: [],
+      messages: [],
+      json: `// connect() 裡的關鍵程式碼
+this.process = spawn(this.config.command, this.config.args || [], {
+  <span class="json-key">stdio</span>: [<span class="json-str">'pipe'</span>, <span class="json-str">'pipe'</span>, <span class="json-str">'pipe'</span>],
+  <span class="json-key">env</span>: processedEnv,    <span style="color:var(--text-secondary)">// 含 \${VAR} 替換</span>
+  <span class="json-key">cwd</span>: this.config.cwd
+});`
+    },
+    {
+      phase: 'spawn',
+      desc: '<strong>processEnvironment()</strong>：在 spawn 前，先處理 <code>config.json</code> 裡的 env 欄位。如果值是 <code>${VAR_NAME}</code> 格式，會替換成實際的環境變數值。例如 <code>${NCHU_MODULES_PATH}</code> → <code>/opt/nchu-library</code>。',
+      parentStates: [
+        { cls: 'info', label: '環境變數', val: '${NCHU_MODULES_PATH}\n→ /opt/nchu-library' },
+      ],
+      childStates: [],
+      messages: [],
+      json: `// processEnvironment()
+<span class="json-key">if</span> (value.startsWith(<span class="json-str">'\${'</span>) && value.endsWith(<span class="json-str">'}'</span>)) {
+  <span class="json-key">const</span> envVar = value.slice(<span class="json-num">2</span>, -<span class="json-num">1</span>);
+  processedEnv[key] = process.env[envVar];
+}
+
+<span style="color:var(--text-secondary)">// config.json 裡的設定範例：</span>
+{
+  <span class="json-key">"env"</span>: {
+    <span class="json-key">"MODULES_PATH"</span>: <span class="json-str">"\${NCHU_MODULES_PATH}"</span>
+  }
+}`
+    },
+    {
+      phase: 'spawn',
+      desc: '<strong>setupEventHandlers()</strong>：綁定 stdout/stderr/stdin 的事件監聽。stdout 接收子程序回傳的 JSON-RPC 訊息，stderr 記錄錯誤日誌，stdin 處理 EPIPE 防止子程序崩潰時主程序也跟著掛。',
+      parentStates: [
+        { cls: 'processing', label: '綁定事件', val: 'stdout.on("data")\nstderr.on("data")\nstdin.on("error")' },
+      ],
+      childStates: [
+        { cls: 'waiting', label: '啟動中', val: 'Python MCP Server\n正在載入...' },
+      ],
+      messages: [],
+      json: `// setupEventHandlers()
+this.process.<span class="json-key">stdout</span>.on(<span class="json-str">'data'</span>, (data) => {
+  this.handleStdout(data);  <span style="color:var(--text-secondary)">// 行緩衝 → JSON.parse</span>
+});
+
+this.process.<span class="json-key">stdin</span>.on(<span class="json-str">'error'</span>, (error) => {
+  this.isConnected = <span class="json-num">false</span>;  <span style="color:var(--text-secondary)">// 防止 EPIPE 崩潰</span>
+});`
+    },
+
+    // Phase 2: initialize handshake
+    {
+      phase: 'init',
+      desc: '<strong>等 1 秒後送出 initialize</strong>：connect() 內的 <code>setTimeout(() => this.initialize(), 1000)</code>。這是 JSON-RPC 2.0 格式的 request，帶有 <code>id: 1</code> 和 <code>protocolVersion: "2024-11-05"</code>。',
+      parentStates: [
+        { cls: 'processing', label: '發送', val: 'initialize (id: 1)' },
+      ],
+      childStates: [
+        { cls: 'waiting', label: '狀態', val: '就緒，等待連線' },
+      ],
+      messages: [
+        { dir: 'right', type: 'req', label: 'REQUEST', method: 'initialize', detail: 'id: 1, protocolVersion: "2024-11-05"' },
+      ],
+      json: `<span style="color:var(--text-secondary)">// stdin → 寫入子程序</span>
+{
+  <span class="json-key">"jsonrpc"</span>: <span class="json-str">"2.0"</span>,
+  <span class="json-key">"id"</span>: <span class="json-num">1</span>,
+  <span class="json-key">"method"</span>: <span class="json-str">"initialize"</span>,
+  <span class="json-key">"params"</span>: {
+    <span class="json-key">"protocolVersion"</span>: <span class="json-str">"2024-11-05"</span>,
+    <span class="json-key">"capabilities"</span>: { <span class="json-key">"tools"</span>: {} },
+    <span class="json-key">"clientInfo"</span>: {
+      <span class="json-key">"name"</span>: <span class="json-str">"raw-mcp-client"</span>,
+      <span class="json-key">"version"</span>: <span class="json-str">"1.0.0"</span>
+    }
+  }
+}`
+    },
+    {
+      phase: 'init',
+      desc: '<strong>子程序回應 initialize</strong>：stdout 回傳帶有 <code>capabilities</code> 的 JSON-RPC response。<code>handleStdout()</code> 將 raw bytes 用 <code>messageBuffer</code> 做行緩衝拆分，每行嘗試 <code>JSON.parse</code>，成功後交給 <code>handleMessage()</code> 路由。',
+      parentStates: [
+        { cls: 'processing', label: '接收', val: 'handleStdout()\n→ handleMessage()' },
+      ],
+      childStates: [
+        { cls: 'success', label: '回應', val: 'capabilities: { tools: {} }' },
+      ],
+      messages: [
+        { dir: 'right', type: 'req', label: 'REQUEST', method: 'initialize', detail: 'id: 1', dimmed: true },
+        { dir: 'left', type: 'res', label: 'RESPONSE', method: 'initialize result', detail: 'id: 1, capabilities: { tools: {} }' },
+      ],
+      json: `<span style="color:var(--text-secondary)">// stdout ← 子程序回傳</span>
+{
+  <span class="json-key">"jsonrpc"</span>: <span class="json-str">"2.0"</span>,
+  <span class="json-key">"id"</span>: <span class="json-num">1</span>,
+  <span class="json-key">"result"</span>: {
+    <span class="json-key">"protocolVersion"</span>: <span class="json-str">"2024-11-05"</span>,
+    <span class="json-key">"capabilities"</span>: { <span class="json-key">"tools"</span>: {} },
+    <span class="json-key">"serverInfo"</span>: {
+      <span class="json-key">"name"</span>: <span class="json-str">"nchu-library"</span>,
+      <span class="json-key">"version"</span>: <span class="json-str">"1.0.0"</span>
+    }
+  }
+}
+
+<span style="color:var(--text-secondary)">// handleStdout() 行緩衝邏輯：</span>
+this.messageBuffer += data.toString();
+const lines = this.messageBuffer.split(<span class="json-str">'\\n'</span>);
+this.messageBuffer = lines.pop();  <span style="color:var(--text-secondary)">// 保留不完整的行</span>`
+    },
+    {
+      phase: 'init',
+      desc: '<strong>handleInitializationResponse()</strong>：收到 capabilities → 設定 <code>this.ready = true</code>（注意：此時 <code>isConnected</code> 仍為 false！要等工具載好才算真正連上）。接著送出 <code>notifications/initialized</code> 通知（無 id，單向通知不期待回應）。',
+      parentStates: [
+        { cls: 'success', label: '狀態更新', val: 'ready = true\nisConnected = false（尚未）' },
+      ],
+      childStates: [
+        { cls: 'success', label: '狀態', val: '初始化完成' },
+      ],
+      messages: [
+        { dir: 'right', type: 'req', label: 'REQUEST', method: 'initialize', detail: 'id: 1', dimmed: true },
+        { dir: 'left', type: 'res', label: 'RESPONSE', method: 'initialize result', detail: 'capabilities: {...}', dimmed: true },
+        { dir: 'right', type: 'notify', label: 'NOTIFICATION', method: 'notifications/initialized', detail: '（單向通知，無 id，無回應）' },
+      ],
+      json: `<span style="color:var(--text-secondary)">// handleInitializationResponse()</span>
+this.<span class="json-key">ready</span> = <span class="json-num">true</span>;        <span style="color:var(--text-secondary)">// ✓ 初始化完成</span>
+this.connectionError = <span class="json-num">null</span>;
+
+<span style="color:var(--text-secondary)">// 送出 initialized 通知（注意：沒有 id！）</span>
+this.sendMessage({
+  <span class="json-key">"jsonrpc"</span>: <span class="json-str">"2.0"</span>,
+  <span class="json-key">"method"</span>: <span class="json-str">"notifications/initialized"</span>,
+  <span class="json-key">"params"</span>: {}
+});`
+    },
+
+    // Phase 3: tools list
+    {
+      phase: 'tools',
+      desc: '<strong>requestToolsList()</strong>：再等 1 秒後送出 <code>tools/list</code> 請求（id: 3），向子程序要求回報它支援的所有工具清單。',
+      parentStates: [
+        { cls: 'processing', label: '發送', val: 'tools/list (id: 3)' },
+      ],
+      childStates: [
+        { cls: 'processing', label: '處理中', val: '列舉工具...' },
+      ],
+      messages: [
+        { dir: 'right', type: 'req', label: 'REQUEST', method: 'initialize', detail: 'id: 1', dimmed: true },
+        { dir: 'left', type: 'res', label: 'RESPONSE', method: 'init result', detail: 'capabilities', dimmed: true },
+        { dir: 'right', type: 'notify', label: 'NOTIFY', method: 'initialized', detail: '', dimmed: true },
+        { dir: 'right', type: 'req', label: 'REQUEST', method: 'tools/list', detail: 'id: 3' },
+      ],
+      json: `<span style="color:var(--text-secondary)">// stdin → 寫入子程序</span>
+{
+  <span class="json-key">"jsonrpc"</span>: <span class="json-str">"2.0"</span>,
+  <span class="json-key">"id"</span>: <span class="json-num">3</span>,
+  <span class="json-key">"method"</span>: <span class="json-str">"tools/list"</span>,
+  <span class="json-key">"params"</span>: {}
+}`
+    },
+    {
+      phase: 'tools',
+      desc: '<strong>handleToolsListResponse()</strong>：子程序回傳工具陣列。收到後存入 <code>this.tools</code>，<strong>這時才設定 <code>isConnected = true</code></strong>！工具列表接著會被 <code>MCPToolManager.registerTools()</code> 彙整，並轉換成 Claude API 的 tool definition 格式。',
+      parentStates: [
+        { cls: 'success', label: '狀態更新', val: 'isConnected = true ✓\ntools.length = 8' },
+      ],
+      childStates: [
+        { cls: 'success', label: '回報', val: '8 個工具就緒' },
+      ],
+      messages: [
+        { dir: 'right', type: 'req', label: 'REQUEST', method: 'initialize', detail: '', dimmed: true },
+        { dir: 'left', type: 'res', label: 'RESPONSE', method: 'init result', detail: '', dimmed: true },
+        { dir: 'right', type: 'notify', label: 'NOTIFY', method: 'initialized', detail: '', dimmed: true },
+        { dir: 'right', type: 'req', label: 'REQUEST', method: 'tools/list', detail: 'id: 3', dimmed: true },
+        { dir: 'left', type: 'res', label: 'RESPONSE', method: 'tools/list result', detail: '8 個工具' },
+      ],
+      json: `<span style="color:var(--text-secondary)">// stdout ← 子程序回傳</span>
+{
+  <span class="json-key">"id"</span>: <span class="json-num">3</span>,
+  <span class="json-key">"result"</span>: {
+    <span class="json-key">"tools"</span>: [
+      { <span class="json-key">"name"</span>: <span class="json-str">"search_new_books"</span>,
+        <span class="json-key">"description"</span>: <span class="json-str">"搜尋圖書館新書"</span>,
+        <span class="json-key">"inputSchema"</span>: { <span class="json-key">"type"</span>: <span class="json-str">"object"</span>, ... } },
+      { <span class="json-key">"name"</span>: <span class="json-str">"search_courses"</span>, ... },
+      <span style="color:var(--text-secondary)">// ...共 8 個</span>
+    ]
+  }
+}
+
+<span style="color:var(--text-secondary)">// handleToolsListResponse()</span>
+this.tools = tools;
+this.<span class="json-key">isConnected</span> = <span class="json-num">true</span>;  <span style="color:var(--text-secondary)">// ← 到這裡才算真正連上！</span>`
+    },
+
+    // Phase 4: tool call
+    {
+      phase: 'call',
+      desc: '<strong>executeToolCall()</strong>：當 Sonnet 回傳 <code>tool_use</code> 時，<code>raw-mcp-client</code> 會呼叫這個方法。它用遞增的 <code>requestId</code> 作 key，把 resolve/reject callback 存入 <code>pendingRequests</code> Map，並設定 30 秒 timeout。',
+      parentStates: [
+        { cls: 'processing', label: '發送', val: 'tools/call (id: 4)\nsearch_new_books' },
+      ],
+      childStates: [
+        { cls: 'processing', label: '執行中', val: 'search_new_books\n查詢圖書館 API...' },
+      ],
+      messages: [
+        { dir: 'right', type: 'req', label: 'REQUEST', method: 'init + tools/list', detail: '（前面步驟）', dimmed: true },
+        { dir: 'left', type: 'res', label: 'RESPONSE', method: 'results', detail: '（前面步驟）', dimmed: true },
+        { dir: 'right', type: 'req', label: 'REQUEST', method: 'tools/call', detail: 'id: 4, name: "search_new_books"\narguments: { query: "新書", limit: 10 }' },
+      ],
+      json: `<span style="color:var(--text-secondary)">// executeToolCall("search_new_books", {query:"新書",limit:10})</span>
+<span class="json-key">const</span> requestId = this.requestId++;  <span style="color:var(--text-secondary)">// id: 4</span>
+
+<span style="color:var(--text-secondary)">// 存入 pendingRequests Map</span>
+this.pendingRequests.set(requestId, {
+  resolve, reject,
+  <span class="json-key">timeout</span>: setTimeout(() => {
+    reject(<span class="json-str">"工具執行超時"</span>);
+  }, <span class="json-num">30000</span>),       <span style="color:var(--text-secondary)">// 30 秒 timeout</span>
+  <span class="json-key">toolName</span>: <span class="json-str">"search_new_books"</span>
+});
+
+<span style="color:var(--text-secondary)">// stdin → 送出 JSON-RPC request</span>
+{
+  <span class="json-key">"method"</span>: <span class="json-str">"tools/call"</span>,
+  <span class="json-key">"id"</span>: <span class="json-num">4</span>,
+  <span class="json-key">"params"</span>: {
+    <span class="json-key">"name"</span>: <span class="json-str">"search_new_books"</span>,
+    <span class="json-key">"arguments"</span>: { <span class="json-key">"query"</span>: <span class="json-str">"新書"</span>, <span class="json-key">"limit"</span>: <span class="json-num">10</span> }
+  }
+}`
+    },
+    {
+      phase: 'call',
+      desc: '<strong>handleToolCallResponse()</strong>：子程序執行完工具後回傳結果。父程序從 <code>pendingRequests</code> Map 中以 id 找到對應的 callback，清除 timeout，呼叫 <code>resolve(result.content)</code>。結果回傳給 <code>raw-mcp-client</code> 後追加到 messages 陣列。',
+      parentStates: [
+        { cls: 'success', label: '完成', val: 'pendingRequests.delete(4)\nclearTimeout ✓\nresolve(result)' },
+      ],
+      childStates: [
+        { cls: 'success', label: '完成', val: '回傳 10 筆結果' },
+      ],
+      messages: [
+        { dir: 'right', type: 'req', label: 'REQUEST', method: '（前面步驟）', detail: '', dimmed: true },
+        { dir: 'left', type: 'res', label: 'RESPONSE', method: '（前面步驟）', detail: '', dimmed: true },
+        { dir: 'right', type: 'req', label: 'REQUEST', method: 'tools/call', detail: 'id: 4, search_new_books', dimmed: true },
+        { dir: 'left', type: 'res', label: 'RESPONSE', method: 'tools/call result', detail: 'id: 4, content: [{type:"text", text:"...10 筆新書"}]' },
+      ],
+      json: `<span style="color:var(--text-secondary)">// stdout ← 子程序回傳</span>
+{
+  <span class="json-key">"id"</span>: <span class="json-num">4</span>,
+  <span class="json-key">"result"</span>: {
+    <span class="json-key">"content"</span>: [
+      { <span class="json-key">"type"</span>: <span class="json-str">"text"</span>,
+        <span class="json-key">"text"</span>: <span class="json-str">"[{title:'深度學習入門',...}, ...]"</span> }
+    ]
+  }
+}
+
+<span style="color:var(--text-secondary)">// handleToolCallResponse()</span>
+<span class="json-key">const</span> pending = this.pendingRequests.get(message.id);
+clearTimeout(pending.timeout);
+this.pendingRequests.delete(message.id);
+pending.<span class="json-key">resolve</span>(message.result.content);  <span style="color:var(--text-secondary)">// → 回到 raw-mcp-client</span>`
+    },
+  ];
+}
+
+// === RENDERING ===
+function renderStep(idx) {
+  const s = steps[idx];
+  document.getElementById('desc').innerHTML = s.desc;
+
+  // Phase bar
+  const phases = ['spawn','init','tools','call'];
+  const phaseIdx = phases.indexOf(s.phase);
+  document.querySelectorAll('.phase-item').forEach((el, i) => {
+    el.classList.remove('active','done');
+    if (i < phaseIdx) el.classList.add('done');
+    else if (i === phaseIdx) el.classList.add('active');
+  });
+
+  // Parent states
+  const pEl = document.getElementById('parentStates');
+  pEl.innerHTML = '';
+  (s.parentStates || []).forEach(st => {
+    const div = document.createElement('div');
+    div.className = `state-box ${st.cls}`;
+    div.innerHTML = `<div class="state-label">${st.label}</div><div class="state-val">${st.val}</div>`;
+    pEl.appendChild(div);
+    requestAnimationFrame(() => requestAnimationFrame(() => div.classList.add('visible')));
+  });
+
+  // Child states
+  const cEl = document.getElementById('childStates');
+  cEl.innerHTML = '';
+  (s.childStates || []).forEach(st => {
+    const div = document.createElement('div');
+    div.className = `state-box ${st.cls}`;
+    div.innerHTML = `<div class="state-label">${st.label}</div><div class="state-val">${st.val}</div>`;
+    cEl.appendChild(div);
+    requestAnimationFrame(() => requestAnimationFrame(() => div.classList.add('visible')));
+  });
+
+  // Messages
+  const mEl = document.getElementById('msgArea');
+  mEl.innerHTML = '';
+  (s.messages || []).forEach(m => {
+    const row = document.createElement('div');
+    row.className = 'msg-row';
+    if (m.dimmed) row.classList.add('dimmed');
+
+    const arrow = document.createElement('div');
+    arrow.className = `msg-arrow ${m.dir}`;
+    arrow.textContent = m.dir === 'right' ? '→' : '←';
+    row.appendChild(arrow);
+
+    const bubble = document.createElement('div');
+    bubble.className = `msg-bubble ${m.type}`;
+    bubble.innerHTML = `
+      <div class="msg-label ${m.type}">${m.label}</div>
+      <div class="msg-method">${m.method}</div>
+      ${m.detail ? '<div class="msg-detail">' + m.detail + '</div>' : ''}
+    `;
+    row.appendChild(bubble);
+    mEl.appendChild(row);
+    requestAnimationFrame(() => requestAnimationFrame(() => row.classList.add('visible')));
+  });
+
+  // JSON block
+  const jEl = document.getElementById('jsonBlock');
+  if (s.json) {
+    jEl.style.display = 'block';
+    jEl.innerHTML = s.json;
+  } else {
+    jEl.style.display = 'none';
+  }
+}
+
+function renderInitial() {
+  document.getElementById('desc').textContent = '點擊「下一步 →」開始，跟著 MCPServerConnection 的程式碼走過一次完整的握手流程。';
+  document.querySelectorAll('.phase-item').forEach(el => el.classList.remove('active','done'));
+  document.getElementById('parentStates').innerHTML = '';
+  document.getElementById('childStates').innerHTML = '';
+  document.getElementById('msgArea').innerHTML = '';
+  document.getElementById('jsonBlock').style.display = 'none';
+}
+
+// === INIT ===
+generateSteps();
+renderInitial();
+updateControls();
+</script>
+</body>
+</html>
