@@ -22,8 +22,8 @@ This file provides guidance to Claude Code / Claude Agent SDK clients when worki
 | 第二段 | 50 min | **How MCP Works** | `02-how-mcp-works.pptx`、`mcp-architecture-animation.html`、`mcp-connection-animation.html` | 🔨 初稿完成 |
 | 休息 | 10 min | | | |
 | 第三段 | 50 min | **Agentic Tool Loop** | `03-agentic-tool-loop.pptx`、`sonnet-flow-running-example.html`、`sonnet-running-example.pptx` | 🔨 初稿完成 |
-| 第四段 | 40 min | **實務考量** | `04-practical-considerations.md`、`haiku-alignment-report.pptx`、`haiku-alignment-animation.html` | ✅ 完成（md 版本） |
-| Q&A | 20 min | 問答 + 動手指引 | `05-hands-on-lab.md` + `mini-project/` + `infra/` | ✅ 完成 |
+| 第四段 | 50 min | **動手做（mini-project 實作）** | `04-hands-on-lab.md` + `mini-project/` + `infra/` | ✅ 完成 |
+| 第五段 | 10 min | **實務考量（收尾）** | `05-practical-considerations.md`、`haiku-alignment-report.pptx`、`haiku-alignment-animation.html` | ✅ 完成（md 版本） |
 
 ## 各段內容規劃
 
@@ -53,28 +53,36 @@ This file provides guidance to Claude Code / Claude Agent SDK clients when worki
 - Live Demo：現場操作系統，對照動畫逐步解說
 - 搭配素材：`sonnet-flow-running-example.html`、`sonnet-running-example.pptx`
 
-### 第四段：實務考量（40 min）
+### 第四段：動手做（50 min，hands-on 主場）
 
-現版 `04-practical-considerations.md` 結構為「四大支柱」，每塊 10 分鐘：
+現版 `04-hands-on-lab.md` 是 landing page，指向可跑的 `mini-project/`。**作為工作坊的 hands-on 主場**，學員現場完成 L1（換自己領域的 JSON），讓 Segment 1–3 的概念在自己電腦上發生。
 
-- **§1 成本**：10 人 3 小時 workshop 的 Claude Haiku/Sonnet 真實帳、prompt caching、失控情境、Anthropic Console 護欄、本地 vs 雲端長期帳
-- **§2 模型選擇**：Task-complexity gradient；引 `mini-project/docs/benchmarks/2026-04-24-claude-vs-gemma4.md` 佐證本地 Gemma 4 31B 在 tool-calling 任務打平 Claude；multi-provider adapter 設計
-- **§3 Tool-calling 品質陷阱**：docstring 設計、邊界防禦（limit 參數）、錯誤當資料不當 exception、Gemma 4 thinking marker strip
-- **§4 Scale 質變**：mini-project 3 tools → AiLearningMate 239 tools 的五個質變（context 爆量 / 語意混淆 / 多輪 context / 安全 / observability）
+**50 分鐘時間配置**：
+- 0–10 min：講師 demo + 學員同步 `setup.sh`
+- 10–20 min：L1 Step 1–2（觀察 + 換 JSON）
+- 20–35 min：L1 Step 3–4（改 docstring + 重啟驗證）
+- 35–45 min：交叉展示 — 幾位老師用自己領域資料 demo
+- 45–50 min：Q&A + 鋪陳 Segment 5
 
-搭配素材：`haiku-alignment-report.pptx`、`haiku-alignment-animation.html`（原預計講 Haiku alignment，現整併進 §1 成本討論）
+三關 Lab 路徑：
+- **L1**：換 JSON 做你領域的助理（**課堂現場必做**）
+- **L2**：加一支有參數的搜尋工具（課後自修）
+- **L3**：呼叫外部 API（課後自修）
 
-### Q&A + 動手指引（20 min）
+Workshop 現場可連 NCHU vLLM 端點（`infra/serve-*.sh` 提供 Gemma 4 / Qwen Coder）。
 
-現版 `05-hands-on-lab.md` 作為 landing page，指向可跑的 `mini-project/`：
+### 第五段：實務考量 收尾（10 min）
 
-- 5 分鐘快速入門（clone → setup.sh → npm start → 瀏覽器問答）
-- 三關 Lab 路徑：
-    - **L1**：換 JSON 做你領域的助理（課堂 40 分）
-    - **L2**：加一支有參數的搜尋工具（課後自修）
-    - **L3**：呼叫外部 API（課後自修）
-- Workshop 現場：連 NCHU vLLM 端點（`infra/serve-*.sh` 提供的 Gemma 4 / Qwen Coder）
-- 架構快速回顧（ASCII pipeline）、常見卡點、延伸閱讀
+現版 `05-practical-considerations.md` 結構為「四大支柱」，**順序從剛做的 mini-project 往外擴**（Scale → Quality → Model → Cost）：
+
+- **§1 Scale 質變**（3 tools → 239 tools 的五個質變：context 爆量 / 語意混淆 / 多輪 context / 安全 / observability）
+- **§2 Tool-calling 品質陷阱**（docstring 設計、邊界防禦、錯誤當資料、Gemma 4 thinking marker strip）
+- **§3 模型選擇**（Task-complexity gradient；引 benchmark 佐證 Gemma 4 在 tool-calling 任務打平 Claude；multi-provider adapter）
+- **§4 成本**（10 人 3 小時 workshop 真實帳、prompt caching、失控情境、Anthropic Console 護欄、本地 vs 雲端長期帳）
+
+**10 分鐘塞不下四支柱**。講師於現場依聽眾屬性**擇一深入 ~7 min**，其餘三節各一句帶過，最後 ~2 min Q&A。md 保留完整四節供課後閱讀。
+
+搭配素材：`haiku-alignment-report.pptx`、`haiku-alignment-animation.html`（可作為 §4 成本中 Haiku alignment 的延伸閱讀）。
 
 ## 教材風格規範
 
@@ -99,8 +107,8 @@ This file provides guidance to Claude Code / Claude Agent SDK clients when worki
 ```
 repo root/
 ├── 01–03 *.pptx / *-animation.html    講課投影片與動畫（學員端）
-├── 04-practical-considerations.md     第四段講義
-├── 05-hands-on-lab.md                 第五段動手指引 landing page
+├── 04-hands-on-lab.md                 第四段動手做 landing page（現場實作主場）
+├── 05-practical-considerations.md     第五段實務考量收尾
 ├── haiku-alignment-*                  Haiku 優化報告（第四段 §1 引用）
 ├── sonnet-*-example.*                 Sonnet 實例（第三段引用）
 ├── course-notes-draft.md              個人筆記草稿

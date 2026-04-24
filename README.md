@@ -12,15 +12,15 @@
 | 2 | 50 min | How MCP Works | `02-how-mcp-works.pptx` + `mcp-architecture-animation.html` + `mcp-connection-animation.html` |
 | — | 10 min | 休息 | |
 | 3 | 50 min | Agentic Tool Loop | `03-agentic-tool-loop.pptx` + `sonnet-flow-running-example.html` |
-| 4 | 40 min | 實務考量 | `04-practical-considerations.md` + `haiku-alignment-report.pptx` + `haiku-alignment-animation.html` |
-| 5 | 20 min | Q&A + 動手指引 | `05-hands-on-lab.md` + `mini-project/` + `infra/` |
+| 4 | 50 min | 動手做（mini-project 實作） | `04-hands-on-lab.md` + `mini-project/` + `infra/` |
+| 5 | 10 min | 實務考量（收尾） | `05-practical-considerations.md` + `haiku-alignment-report.pptx` + `haiku-alignment-animation.html` |
 
 ## Repo 結構
 
 ```
 ├── 01–03-*.pptx / *-animation.html    # 講課用投影片與動畫
-├── 04-practical-considerations.md     # 第四段講義（成本／模型／品質／規模）
-├── 05-hands-on-lab.md                 # 第五段動手指引 landing page
+├── 04-hands-on-lab.md                 # 第四段動手做 landing page（現場實作主場）
+├── 05-practical-considerations.md     # 第五段收尾（規模／品質／模型／成本）
 ├── mini-project/                      # 學員端 hands-on：Express + FastMCP + 極簡 UI
 │   ├── backend-node/, mcp-server-py/, web/
 │   ├── docs/labs/                     # L1–L3 實作手冊
@@ -41,6 +41,6 @@
 
 - 第一、二段：簡報初稿完成
 - 第三段：pptx 初稿完成
-- 第四段：`04-practical-considerations.md` 完成（四大支柱：成本／模型／品質／規模）
-- 第五段：`05-hands-on-lab.md` 完成，並附完整可跑 `mini-project/`（28 檔 + 三關 Lab 手冊）
+- 第四段（動手做）：`04-hands-on-lab.md` 完成，附完整可跑 `mini-project/`（28 檔 + 三關 Lab 手冊）
+- 第五段（實務考量收尾）：`05-practical-considerations.md` 完成（四大支柱：規模／品質／模型／成本）
 - `infra/`：Gemma 4 / Qwen 2.5-Coder vLLM 啟動腳本完成

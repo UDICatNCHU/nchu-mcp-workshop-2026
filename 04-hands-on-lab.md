@@ -1,17 +1,19 @@
-# Segment 5 — 動手指引（Hands-on Lab）
+# Segment 4 — 動手做（Hands-on Lab）
 
-> 對應課綱 Segment 5「Q&A + 動手指引」。本節 20 分鐘，把 Segment 1–3 學到的 MCP / agent 概念，落地成一個你自己帶回家能改造的最小專案。
+> 對應課綱 Segment 4「動手做（mini-project 實作）」。本節 **50 分鐘，是本工作坊的 hands-on 主場**：Segment 1–3 建立的概念，這一節要在你自己的電腦上跑起來。
+>
+> **定位**：不是「指引閱讀」、不是「Demo 欣賞」，而是**現場動手實作** mini-project，完成 L1 並看到 agent 真的回答你自己塞的資料。
 
 ---
 
 ## 📦 本節產出物
 
-讀完本頁 + 跑完 L1，你會有：
+跑完本節（L1），你會**親手擁有**：
 
 1. 一個在本機跑起來的 MCP agent（Node.js 後端 + Python FastMCP + 極簡 HTML chat）
-2. 一支**屬於你領域的**客製 MCP 工具（改 JSON 就好）
-3. 理解「工具選擇 → 參數綁定 → LLM 摘要」這整條 agent 資料流
-4. 兩關延伸作業（L2 / L3）帶回家自修
+2. 一支**屬於你領域的**客製 MCP 工具（改 JSON 就好，0 行 Python）
+3. 理解「工具選擇 → 參數綁定 → LLM 摘要」這整條 agent 資料流的**實際脈動**
+4. 兩關延伸作業（L2 / L3）帶回家自修的明確路徑
 
 ---
 
@@ -49,15 +51,29 @@ cd backend-node && npm start
 
 ---
 
+## ⏱ 50 分鐘的時間配置（建議）
+
+| 時段 | 做什麼 | 產出 |
+|------|--------|------|
+| 0–10 min | 講師 demo 跑一次 + 學員同步跑 `setup.sh` | 5/5 ✅ |
+| 10–20 min | L1 Step 1（觀察） + Step 2（換自己 JSON） | data/your.json |
+| 20–35 min | L1 Step 3（改 docstring） + Step 4（重啟驗證） | 問你自己的資料會答 |
+| 35–45 min | 交叉展示：邀 3–4 位老師用自己領域資料 demo | 見識不同領域如何落地 |
+| 45–50 min | Q&A + 為 L2/L3 / Segment 5 作鋪陳 | 清楚下一步 |
+
+講師動向：10 min 講解 + 40 min 巡場陪跑 + 現場除錯（預計 80% 的時間在幫卡住的老師）。
+
+---
+
 ## 🧪 Lab 路徑（三關）
 
 | Lab | 主題 | 時長 | 何時做 | 手冊 |
 |-----|------|------|--------|------|
-| **L1** | 換 JSON 做你領域的助理（0 行 Python） | 40 分 | **課堂現場** | [L1-customize-your-data.md](./mini-project/docs/labs/L1-customize-your-data.md) |
-| **L2** | 加一支有參數的搜尋工具 | 40 分 | 課堂或課後 | [L2-add-a-search-tool.md](./mini-project/docs/labs/L2-add-a-search-tool.md) |
-| **L3** | 呼叫外部 API（async + XML + 錯誤處理） | 60 分 | **課後自修** | [L3-call-external-api.md](./mini-project/docs/labs/L3-call-external-api.md) |
+| **L1** | 換 JSON 做你領域的助理（0 行 Python） | 40 分 | **課堂現場（本節主軸）** | [L1-customize-your-data.md](./mini-project/docs/labs/L1-customize-your-data.md) |
+| **L2** | 加一支有參數的搜尋工具 | 40 分 | 課後自修 | [L2-add-a-search-tool.md](./mini-project/docs/labs/L2-add-a-search-tool.md) |
+| **L3** | 呼叫外部 API（async + XML + 錯誤處理） | 60 分 | 課後自修 | [L3-call-external-api.md](./mini-project/docs/labs/L3-call-external-api.md) |
 
-> 📌 **課堂現場只要完成 L1**。L2 / L3 是帶回去繼續挑戰的 stretch goals。
+> 📌 **本節目標：完成 L1**。L2 / L3 是帶回去繼續挑戰的 stretch goals。
 
 ---
 
