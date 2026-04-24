@@ -22,7 +22,7 @@ This file provides guidance to Claude Code / Claude Agent SDK clients when worki
 | 第二段 | 50 min | **How MCP Works** | `02-how-mcp-works.pptx`、`mcp-architecture-animation.html`、`mcp-connection-animation.html` | 🔨 初稿完成 |
 | 休息 | 10 min | | | |
 | 第三段 | 50 min | **Agentic Tool Loop** | `03-agentic-tool-loop.pptx`、`sonnet-flow-running-example.html`、`sonnet-running-example.pptx` | 🔨 初稿完成 |
-| 第四段 | 50 min | **動手做（mini-project 實作）** | `04-hands-on-lab.md` + `mini-project/` + `infra/` | ✅ 完成 |
+| 第四段 | 50 min | **動手做（mini-project 實作）** | `04-hands-on-lab.pptx`、`04-hands-on-lab.md` + `mini-project/` + `infra/` | ✅ 完成 |
 | 第五段 | 10 min | **實務考量（收尾）** | `05-practical-considerations.md`、`haiku-alignment-report.pptx`、`haiku-alignment-animation.html` | ✅ 完成（md 版本） |
 
 ## 各段內容規劃
@@ -55,7 +55,9 @@ This file provides guidance to Claude Code / Claude Agent SDK clients when worki
 
 ### 第四段：動手做（50 min，hands-on 主場）
 
-現版 `04-hands-on-lab.md` 是 landing page，指向可跑的 `mini-project/`。**作為工作坊的 hands-on 主場**，學員現場完成 L1（換自己領域的 JSON），讓 Segment 1–3 的概念在自己電腦上發生。
+現版 `04-hands-on-lab.md` 是學員端 landing page，指向可跑的 `mini-project/`。`04-hands-on-lab.pptx`（12 張）是**現場講師開場用**的投影片，涵蓋本節目標、時間配置、架構回顧、Quick Start、L1 四步驟分解、卡點速查、收尾鋪陳 Segment 5；由 `tools/gen-04-slides.py` 以 python-pptx 自動生成，視覺遵循 repo 的 Ocean Gradient 風格規範。
+
+**作為工作坊的 hands-on 主場**，學員現場完成 L1（換自己領域的 JSON），讓 Segment 1–3 的概念在自己電腦上發生。
 
 **50 分鐘時間配置**：
 - 0–10 min：講師 demo + 學員同步 `setup.sh`
