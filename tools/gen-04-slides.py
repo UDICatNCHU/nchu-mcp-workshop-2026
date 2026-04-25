@@ -133,7 +133,7 @@ def page_chrome(slide, page_num, total, title, subtitle=None):
     add_rect(slide, 0.75, 1.55, 3, 0.04, ORANGE)
 
 
-TOTAL = 12
+TOTAL = 15
 
 
 # ── Slide 1: Cover ──────────────────────────────────────────────────
@@ -237,75 +237,196 @@ def slide_3_schedule():
 def slide_4_architecture():
     s = blank_slide(WHITE)
     page_chrome(s, 4, TOTAL, '架構快速回顧',
-                subtitle='Segment 2 / 3 的動畫，現在你要跑的實體')
+                subtitle='不是單向 pipeline — Node ⟷ LLM 的多輪迭代才是 agent')
 
-    # ASCII-ish box diagram, centered
     boxes = [
         ('Browser', 'web/index.html  ·  fetch POST /chat', DEEP),
         ('Node server', 'Express  ·  LLMClient  ·  MCPClient', TEAL),
         ('Python FastMCP', '@mcp.tool()  ·  stdio JSON-RPC', DEEP),
         ('data/', '你的 JSON  ·  外部 API', NAVY),
     ]
-    x0, y0 = 1.2, 2.1
-    w, h = 10.9, 0.95
+    x0, y0 = 1.0, 2.0
+    w, h = 7.6, 0.95
     for i, (title, desc, color) in enumerate(boxes):
-        y = y0 + i * (h + 0.15)
+        y = y0 + i * (h + 0.2)
         add_rect(s, x0, y, w, h, CREAM)
         add_rect(s, x0, y, 0.15, h, color)
         add_text(s, x0 + 0.35, y + 0.1, 3.5, 0.4, title,
                  font=FONT_TITLE, size=18, color=color, bold=True)
         add_text(s, x0 + 0.35, y + 0.5, w - 0.5, 0.4, desc,
-                 font=FONT_CODE, size=14, color=DARK)
-        # Arrow (except for last)
+                 font=FONT_CODE, size=13, color=DARK)
+        # Bidirectional arrow between boxes
         if i < len(boxes) - 1:
-            add_text(s, x0 + w/2 - 0.3, y + h - 0.05, 0.6, 0.25, '↓',
-                     font=FONT_TITLE, size=20, color=ORANGE,
+            add_text(s, x0 + w/2 - 0.3, y + h - 0.05, 0.6, 0.3, '⇅',
+                     font=FONT_TITLE, size=22, color=ORANGE,
                      bold=True, align=PP_ALIGN.CENTER)
 
-    add_text(s, 0.75, 6.75, 12, 0.4,
-             '關鍵：LLM 回 stop_reason=tool_use → 跑工具 → 結果餵回 → 再問 → 最後 end_turn',
+    # LLM API side bubble at Node row (i=1)
+    llm_y = y0 + 1 * (h + 0.2)
+    bub_x = x0 + w + 0.7
+    bub_w = 3.6
+    add_rect(s, bub_x, llm_y, bub_w, h, NAVY)
+    add_text(s, bub_x + 0.15, llm_y + 0.1, bub_w - 0.3, 0.4, '☁  LLM API',
+             font=FONT_TITLE, size=17, color=WHITE, bold=True)
+    add_text(s, bub_x + 0.15, llm_y + 0.5, bub_w - 0.3, 0.4,
+             'Claude · Gemma · GPT · ...',
+             font=FONT_CODE, size=13, color=SOFT)
+    # Node ⟷ LLM arrow
+    add_text(s, x0 + w + 0.05, llm_y + 0.25, 0.65, 0.45, '⟷',
+             font=FONT_TITLE, size=24, color=ORANGE,
+             bold=True, align=PP_ALIGN.CENTER)
+    # iteration label below bubble
+    add_text(s, bub_x, llm_y + h + 0.05, bub_w, 0.3, 'agent loop · 多輪迭代',
+             font=FONT_BODY, size=12, color=ORANGE,
+             italic=True, bold=True, align=PP_ALIGN.CENTER)
+
+    add_text(s, 0.75, 6.85, 12, 0.4,
+             '關鍵：⇅ 雙向 — Node ⟷ LLM 之間迭代「問 → tool_use → 跑 → 答 → 再問」直到 end_turn',
              font=FONT_BODY, size=13, color=MUTED, italic=True)
 
 
-# ── Slide 5: Quick Start ──────────────────────────────────────────
+# ── Slide 5: 20 行的靈魂（agent loop 真實程式碼）──────────────────
+def slide_4b_agent_loop():
+    s = blank_slide(WHITE)
+    page_chrome(s, 5, TOTAL, 'agent loop 真實長這樣',
+                subtitle='backend-node/llm-client.js — 整個系統的 20 行核心')
+
+    # Code block (left ~ 7.7 inch)
+    add_rect(s, 0.75, 1.95, 7.7, 4.95, CODE_BG)
+    code = (
+        'async chat(messages) {\n'
+        '  const history = [...messages];\n'
+        '  for (let i = 0; i < maxIterations; i++) {           // ← 護欄\n'
+        '    const resp = await anthropic.messages.create({\n'
+        '      model, tools: mcp.getAnthropicTools(),          // ① 餵 tools\n'
+        '      messages: history,\n'
+        '    });\n'
+        '    history.push({ role: "assistant", content: resp.content });\n'
+        '\n'
+        '    if (resp.stop_reason !== "tool_use") {            // ② 結束\n'
+        '      return { reply: extractText(resp), messages: history };\n'
+        '    }\n'
+        '\n'
+        '    const toolUses = resp.content                     // ③ 跑工具\n'
+        '      .filter(b => b.type === "tool_use");\n'
+        '    const toolResults = await Promise.all(\n'
+        '      toolUses.map(t => mcp.callTool(t.name, t.input))\n'
+        '    );\n'
+        '    history.push({ role: "user", content: toolResults });\n'
+        '  }\n'
+        '}'
+    )
+    add_text(s, 0.95, 2.05, 7.4, 4.8, code,
+             font=FONT_CODE, size=12, color=CODE_FG)
+
+    # Right side: 3 annotation cards
+    cards = [
+        ('①', '餵', 'messages + tools 全部重餵 — \nAPI 是 stateless，每輪都要全 history'),
+        ('②', '結束', 'stop_reason ≠ tool_use\n→ 取 text，回給前端'),
+        ('③', '工具', 'tool_use → 平行 callTool\n→ 結果 push 回 history\n→ 繼續迴圈'),
+    ]
+    x0, y0 = 8.65, 1.95
+    for i, (num, title, desc) in enumerate(cards):
+        y = y0 + i * 1.4
+        add_rect(s, x0, y, 4.1, 1.25, CREAM)
+        add_rect(s, x0, y, 0.5, 1.25, ORANGE)
+        add_text(s, x0 + 0.05, y + 0.32, 0.5, 0.6, num,
+                 font=FONT_TITLE, size=22, color=WHITE, bold=True,
+                 align=PP_ALIGN.CENTER)
+        add_text(s, x0 + 0.65, y + 0.08, 3.4, 0.4, title,
+                 font=FONT_BODY, size=15, color=NAVY, bold=True)
+        add_text(s, x0 + 0.65, y + 0.42, 3.4, 0.85, desc,
+                 font=FONT_BODY, size=11, color=DARK)
+
+    add_text(s, 0.75, 6.95, 12, 0.4,
+             '🛑 maxIterations=10 是護欄；超過 → 拋錯。整個 agent 沒有 magic — 就是個 for-loop + if-else。',
+             font=FONT_BODY, size=12, color=ORANGE, bold=True, italic=True)
+
+
+# ── Slide 6: 行前準備 ──────────────────────────────────────────────
+def slide_5_pre_workshop():
+    s = blank_slide(WHITE)
+    page_chrome(s, 6, TOTAL, '行前準備（請於上課前完成）',
+                subtitle='這幾步無關概念，但卡住會吃掉現場時間')
+
+    rows = [
+        ('1', 'git clone 教材並進到 mini-project',
+              '$ git clone https://github.com/UDICatNCHU/nchu-mcp-workshop-2026\n'
+              '$ cd nchu-mcp-workshop-2026/mini-project'),
+        ('2', '取得 LLM 存取（二選一）',
+              '雲端：Anthropic Console 申請 API key（新帳號送 $5 試用）\n'
+              '本地：確認你會走 NCHU vLLM 路線（細節見下一頁）'),
+        ('3', '建 .env 並填入金鑰',
+              '$ cp .env.example .env\n'
+              '$ vim .env   # 填 ANTHROPIC_API_KEY 或 OPENAI_BASE_URL'),
+        ('4', '跑環境預檢',
+              '$ ./setup.sh\n'
+              '    → 看到 5/5 ✅ 代表現場可以直接 npm start'),
+    ]
+    y = 1.95
+    for num, title, code in rows:
+        add_rect(s, 0.75, y, 12.0, 1.05, CREAM)
+        add_rect(s, 0.75, y, 0.55, 1.05, DEEP)
+        add_text(s, 0.78, y + 0.28, 0.55, 0.5, num,
+                 font=FONT_TITLE, size=26, color=WHITE, bold=True,
+                 align=PP_ALIGN.CENTER)
+        add_text(s, 1.5, y + 0.08, 11.2, 0.4, title,
+                 font=FONT_BODY, size=16, color=DARK, bold=True)
+        add_text(s, 1.5, y + 0.45, 11.2, 0.6, code,
+                 font=FONT_CODE, size=12, color=DEEP)
+        y += 1.18
+
+    add_text(s, 0.75, 6.7, 12, 0.4,
+             '✅ 行前 4 步完成 → 現場只剩「npm start + 開瀏覽器」（下一頁）',
+             font=FONT_BODY, size=13, color=ORANGE, bold=True, italic=True)
+
+
+# ── Slide 7: 現場 Quick Start ────────────────────────────────────────
 def slide_5_quickstart():
     s = blank_slide(WHITE)
-    page_chrome(s, 5, TOTAL, '快速入門（五步上線）',
-                subtitle='預計 10 分鐘，跟著我一起做')
+    page_chrome(s, 7, TOTAL, '現場啟動（5 分鐘）',
+                subtitle='三條指令 + 對照「該長什麼樣」')
 
-    # Code block container
-    add_rect(s, 0.75, 2.0, 12.0, 4.5, CODE_BG)
-    code = (
-        '# 1. 取得教材\n'
-        '$ git clone https://github.com/UDICatNCHU/nchu-mcp-workshop-2026\n'
-        '$ cd nchu-mcp-workshop-2026/mini-project\n'
-        '\n'
-        '# 2. 設定 API key（或等下換成 workshop 本地端點）\n'
-        '$ cp .env.example .env && vim .env\n'
-        '\n'
-        '# 3. 環境檢查（自動裝依賴 + 試啟動）\n'
-        '$ ./setup.sh\n'
-        '    → 看到 5/5 ✅ 代表 OK\n'
-        '\n'
-        '# 4. 啟動\n'
-        '$ cd backend-node && npm start\n'
-        '    → "Mini AI Assistant: http://localhost:3000"\n'
-        '\n'
-        '# 5. 瀏覽器打開 http://localhost:3000\n'
-        '    → 問 "英文中心幾點開門？" 看 AI 答你'
+    # Section 1: commands you type
+    add_text(s, 0.75, 1.9, 12, 0.35, '▶  你輸入',
+             font=FONT_BODY, size=14, color=NAVY, bold=True)
+    add_rect(s, 0.75, 2.25, 12.0, 1.55, CODE_BG)
+    cmds = (
+        '$ ./setup.sh                            # 1. sanity check 已裝好的環境\n'
+        '$ cd backend-node && npm start          # 2. 啟動 backend + spawn MCP\n'
+        '$ open http://localhost:3000            # 3. 瀏覽器'
     )
-    add_text(s, 1.0, 2.15, 11.5, 4.3, code,
-             font=FONT_CODE, size=15, color=CODE_FG)
+    add_text(s, 1.0, 2.35, 11.5, 1.4, cmds,
+             font=FONT_CODE, size=14, color=CODE_FG)
 
-    add_text(s, 0.75, 6.65, 12, 0.4,
-             '看到 AI 答出 JSON 內容 → 恭喜，agent loop 已在你本機跑通 🎉',
-             font=FONT_BODY, size=14, color=ORANGE, bold=True, italic=True)
+    # Section 2: what you should see
+    add_text(s, 0.75, 3.95, 12, 0.35, '▶  你應該看到（npm start 印出）',
+             font=FONT_BODY, size=14, color=NAVY, bold=True)
+    add_rect(s, 0.75, 4.3, 12.0, 2.05, CODE_BG)
+    expected = (
+        '> mini-assistant@1.0.0 start\n'
+        '> node server.js\n'
+        '\n'
+        '✓ hello_tool → get_english_center_info\n'
+        '✓ teachers_tool → search_teachers, get_teacher_detail\n'
+        '✓ weather_tool → get_weather\n'
+        '→ Mini AI Assistant: http://localhost:3000'
+    )
+    add_text(s, 1.0, 4.4, 11.5, 1.9, expected,
+             font=FONT_CODE, size=12, color=CODE_FG)
+
+    add_text(s, 0.75, 6.5, 12, 0.4,
+             '🎉 三行 ✓ + URL → MCP server 都連上了；瀏覽器問「英文中心幾點開門？」會在 terminal 看 [tool_use]',
+             font=FONT_BODY, size=12, color=ORANGE, bold=True, italic=True)
+    add_text(s, 0.75, 6.85, 12, 0.4,
+             '⚠ 沒看到 ✓ 三行：→ Slide 13 卡點速查',
+             font=FONT_BODY, size=11, color=MUTED, italic=True)
 
 
 # ── Slide 6: L1 Overview ──────────────────────────────────────────
 def slide_6_l1_overview():
     s = blank_slide(WHITE)
-    page_chrome(s, 6, TOTAL, 'Lab 1 — 換 JSON 做你領域的助理',
+    page_chrome(s, 9, TOTAL, 'Lab 1 — 換 JSON 做你領域的助理',
                 subtitle='0 行 Python · 40 分鐘 · 現場必做')
 
     # Big 4-step flow
@@ -344,7 +465,7 @@ def slide_6_l1_overview():
 # ── Slide 7: Step 1-2: 觀察 + 換 JSON ──────────────────────────────
 def slide_7_step12():
     s = blank_slide(WHITE)
-    page_chrome(s, 7, TOTAL, 'Step 1–2：觀察 → 換 JSON',
+    page_chrome(s, 10, TOTAL, 'Step 1–2：觀察 → 換 JSON',
                 subtitle='還沒動到 Python 一個字')
 
     # Left: Step 1 观察
@@ -389,61 +510,67 @@ def slide_7_step12():
 # ── Slide 8: Step 3 Docstring ──────────────────────────────────────
 def slide_8_step3():
     s = blank_slide(WHITE)
-    page_chrome(s, 8, TOTAL, 'Step 3：改 docstring（10 min）',
-                subtitle='這一步最影響 AI 能否正確呼叫你的工具')
+    page_chrome(s, 11, TOTAL, 'Step 3：改 docstring（10 min）',
+                subtitle='直接拿 repo 兩支真實工具對照 — 同樣語法、教 LLM 不同事')
 
-    # Big statement
-    add_text(s, 0.75, 1.85, 12, 0.5,
-             'docstring 就是 LLM 看到的「工具說明書」— 不是給人類的註解',
-             font=FONT_BODY, size=18, color=NAVY, bold=True, italic=True)
-
-    # Left: bad
-    add_rect(s, 0.75, 2.5, 6.0, 3.8, CREAM)
-    add_rect(s, 0.75, 2.5, 6.0, 0.5, RGBColor(0xC8, 0x3E, 0x3E))
-    add_text(s, 1.0, 2.55, 5.8, 0.4, '❌  糟糕寫法',
-             font=FONT_TITLE, size=16, color=WHITE, bold=True)
-    bad_code = (
+    # Left: minimal (hello_tool.py)
+    add_rect(s, 0.75, 1.95, 6.0, 4.5, CREAM)
+    add_rect(s, 0.75, 1.95, 6.0, 0.5, DEEP)
+    add_text(s, 1.0, 2.0, 5.8, 0.4, '📝  minimal — hello_tool.py',
+             font=FONT_TITLE, size=15, color=WHITE, bold=True)
+    minimal = (
         '@mcp.tool()\n'
-        'def search(keyword: str) -> str:\n'
-        '    """Search."""\n'
-        '    ...\n'
+        'def get_english_center_info() -> str:\n'
+        '    """取得中興大學英語自學暨\n'
+        '    檢定中心的完整資訊。\n'
         '\n'
-        '# 結果：Claude 不知道何時\n'
-        '# 該呼叫，常常漏叫。'
-    )
-    add_text(s, 0.9, 3.1, 5.8, 3.1, bad_code,
-             font=FONT_CODE, size=14, color=DARK)
-
-    # Right: good
-    add_rect(s, 7.0, 2.5, 5.75, 3.8, CREAM)
-    add_rect(s, 7.0, 2.5, 5.75, 0.5, RGBColor(0x2E, 0x8B, 0x4E))
-    add_text(s, 7.2, 2.55, 5.5, 0.4, '✅  好寫法',
-             font=FONT_TITLE, size=16, color=WHITE, bold=True)
-    good_code = (
-        '@mcp.tool()\n'
-        'def search_teachers(\n'
-        '    keyword: str, limit: int = 5\n'
-        ') -> str:\n'
-        '    """依關鍵字搜尋資工系教授。\n'
-        '\n'
-        '    使用情境：使用者詢問某\n'
-        '    領域教授、某位教授時呼叫。\n'
-        '    ...\n'
+        '    回傳 JSON 字串，包含：\n'
+        '    名稱、開放時間、地點、設備…\n'
+        '    使用情境：使用者詢問英語\n'
+        '    自學中心相關問題時呼叫。\n'
         '    """'
     )
-    add_text(s, 7.15, 3.1, 5.5, 3.1, good_code,
-             font=FONT_CODE, size=13, color=DARK)
+    add_text(s, 0.9, 2.55, 5.8, 3.85, minimal,
+             font=FONT_CODE, size=12, color=DARK)
 
-    # Footer tip
-    add_text(s, 0.75, 6.55, 12, 0.5,
-             '💡 關鍵 3 件事：① 明寫「使用情境」  ② 說明參數意義  ③ 描述回傳格式',
-             font=FONT_BODY, size=15, color=ORANGE, bold=True, italic=True)
+    # Right: production-grade (teachers_tool.py - get_teacher_detail)
+    add_rect(s, 7.0, 1.95, 5.75, 4.5, CREAM)
+    add_rect(s, 7.0, 1.95, 5.75, 0.5, ORANGE)
+    add_text(s, 7.2, 2.0, 5.5, 0.4, '📖  rich — teachers_tool.py',
+             font=FONT_TITLE, size=15, color=WHITE, bold=True)
+    rich = (
+        '@mcp.tool()\n'
+        'def get_teacher_detail(name: str) -> str:\n'
+        '    """取得指定教授的完整資訊\n'
+        '    （email、辦公室、研究領域）。\n'
+        '\n'
+        '    使用情境：使用者問某位教授\n'
+        '    的聯絡方式或完整資料時呼叫。\n'
+        '    通常在 search_teachers 找到\n'
+        '    候選名單後再呼叫。 ←跨工具線索\n'
+        '\n'
+        '    Args:\n'
+        '        name: 教授姓名（完整中文）。\n'
+        '    """'
+    )
+    add_text(s, 7.15, 2.55, 5.55, 3.85, rich,
+             font=FONT_CODE, size=11, color=DARK)
+
+    # Footer: 3 key elements
+    add_rect(s, 0.75, 6.55, 12.0, 0.55, NAVY)
+    add_text(s, 0.95, 6.6, 11.7, 0.5,
+             '影響 LLM 行為的 3 個元素：'
+             ' ① 使用情境 → 該不該叫'
+             '    ② Args 描述 → 怎麼填參數'
+             '    ③ 跨工具線索 → 多輪呼叫順序',
+             font=FONT_BODY, size=12, color=WHITE, bold=True,
+             anchor=MSO_ANCHOR.MIDDLE)
 
 
 # ── Slide 9: Step 4 驗證 ──────────────────────────────────────────
 def slide_9_step4():
     s = blank_slide(WHITE)
-    page_chrome(s, 9, TOTAL, 'Step 4：重啟 + 驗證（5 min）',
+    page_chrome(s, 12, TOTAL, 'Step 4：重啟 + 驗證（5 min）',
                 subtitle='三件事證明你的工具「真的在 work」')
 
     # Command block
@@ -480,81 +607,178 @@ def slide_9_step4():
              font=FONT_BODY, size=13, color=MUTED, italic=True)
 
 
-# ── Slide 10: 連本地端點 ──────────────────────────────────────────
+# ── Slide 8: 選你的 LLM 路線 ──────────────────────────────────────
 def slide_10_local_endpoint():
     s = blank_slide(WHITE)
-    page_chrome(s, 10, TOTAL, 'Workshop 現場：改用 NCHU 本地模型',
-                subtitle='省 API 費 · 延遲更低 · 零配額限制')
+    page_chrome(s, 8, TOTAL, '選你的 LLM 路線',
+                subtitle='`.env` 一行切換 — 因為 MCP 工具兩家都認')
 
-    # Env config block
-    add_rect(s, 0.75, 2.0, 12.0, 2.4, CODE_BG)
-    add_text(s, 1.0, 2.15, 11.5, 2.2,
-             '# mini-project/.env\n'
+    # Top row: two .env columns (compressed)
+    add_rect(s, 0.75, 1.95, 6.0, 1.95, CREAM)
+    add_rect(s, 0.75, 1.95, 6.0, 0.5, DEEP)
+    add_text(s, 1.0, 2.0, 5.8, 0.4, '☁  雲端 · Anthropic Claude',
+             font=FONT_TITLE, size=15, color=WHITE, bold=True)
+    add_rect(s, 0.95, 2.55, 5.6, 1.3, CODE_BG)
+    add_text(s, 1.05, 2.62, 5.45, 1.2,
+             '# .env\n'
+             'LLM_PROVIDER=anthropic\n'
+             'ANTHROPIC_API_KEY=sk-ant-...\n'
+             'ANTHROPIC_MODEL=claude-haiku-4-5',
+             font=FONT_CODE, size=12, color=CODE_FG)
+
+    add_rect(s, 7.0, 1.95, 5.75, 1.95, CREAM)
+    add_rect(s, 7.0, 1.95, 5.75, 0.5, TEAL)
+    add_text(s, 7.2, 2.0, 5.5, 0.4, '🏠  本地 · NCHU vLLM (Gemma 4)',
+             font=FONT_TITLE, size=15, color=WHITE, bold=True)
+    add_rect(s, 7.15, 2.55, 5.45, 1.3, CODE_BG)
+    add_text(s, 7.25, 2.62, 5.3, 1.2,
+             '# .env\n'
              'LLM_PROVIDER=openai\n'
-             'OPENAI_BASE_URL=http://<workshop-server>:8000/v1\n'
+             'OPENAI_BASE_URL=http://<ws-host>:8000/v1\n'
              'OPENAI_API_KEY=dummy\n'
              'OPENAI_MODEL=gemma-4',
-             font=FONT_CODE, size=16, color=CODE_FG)
+             font=FONT_CODE, size=12, color=CODE_FG)
 
-    # Benchmark mini-card
-    add_rect(s, 0.75, 4.65, 12.0, 1.8, CREAM)
-    add_rect(s, 0.75, 4.65, 0.12, 1.8, ORANGE)
-    add_text(s, 1.1, 4.75, 11.5, 0.4, '📊  2026-04-24 實測對比',
-             font=FONT_BODY, size=16, color=NAVY, bold=True)
-    add_multi(s, 1.1, 5.15, 11.5, 1.3, [
-        dict(text='Tool 選擇正確率：Claude 100%  ·  Gemma 4 100%  ← 打平',
-             font=FONT_CODE, size=14, color=DARK, space_after=4),
-        dict(text='Hallucination 抵抗：兩者都通過',
-             font=FONT_CODE, size=14, color=DARK, space_after=4),
-        dict(text='延遲：Claude 4.8s  vs  Gemma 4 3.5s  ← 本地快 1.4×',
-             font=FONT_CODE, size=14, color=DARK),
-    ])
+    # MIDDLE: N+M proof — same MCP tool, two adapter formats (4+6 lines each)
+    add_rect(s, 0.75, 4.0, 12.0, 1.85, CREAM)
+    add_rect(s, 0.75, 4.0, 0.12, 1.85, ORANGE)
+    add_text(s, 1.0, 4.05, 11.7, 0.35,
+             '💎  N+M 的甜蜜：你的工具一支不變，adapter 差別只在 mcp-client.js 這幾行',
+             font=FONT_BODY, size=13, color=NAVY, bold=True)
 
-    add_text(s, 0.75, 6.65, 12, 0.4,
-             '→ 詳見 mini-project/docs/benchmarks/2026-04-24-claude-vs-gemma4.md',
-             font=FONT_CODE, size=12, color=MUTED)
+    # Anthropic format (left)
+    add_rect(s, 1.0, 4.45, 5.5, 1.3, CODE_BG)
+    add_text(s, 1.1, 4.5, 5.35, 1.2,
+             '// getAnthropicTools()\n'
+             '{\n'
+             '  name,\n'
+             '  description,\n'
+             '  input_schema,   // ← MCP\'s\n'
+             '}',
+             font=FONT_CODE, size=11, color=CODE_FG)
+
+    # OpenAI format (right)
+    add_rect(s, 7.0, 4.45, 5.5, 1.3, CODE_BG)
+    add_text(s, 7.1, 4.5, 5.35, 1.2,
+             '// getOpenAITools()\n'
+             '{ type: "function",\n'
+             '  function: {\n'
+             '    name, description,\n'
+             '    parameters,   // ← 同一個\n'
+             '} }',
+             font=FONT_CODE, size=11, color=CODE_FG)
+
+    # Bottom: benchmark strip
+    add_rect(s, 0.75, 5.95, 12.0, 0.55, NAVY)
+    add_text(s, 0.95, 5.98, 11.7, 0.5,
+             '📊 2026-04-24 實測：Tool 正確率 Claude 100% · Gemma 4 100%　|　'
+             '延遲 4.8s vs 3.5s　|　兩者 hallucination 都通過',
+             font=FONT_CODE, size=11, color=WHITE, bold=True,
+             anchor=MSO_ANCHOR.MIDDLE)
+
+    add_text(s, 0.75, 6.6, 12, 0.4,
+             '→ 詳細 benchmark：mini-project/docs/benchmarks/2026-04-24-claude-vs-gemma4.md',
+             font=FONT_CODE, size=11, color=MUTED, italic=True)
 
 
 # ── Slide 11: 常見卡點 ────────────────────────────────────────────
 def slide_11_pitfalls():
     s = blank_slide(WHITE)
-    page_chrome(s, 11, TOTAL, '常見卡點速查',
+    page_chrome(s, 13, TOTAL, '常見卡點速查',
                 subtitle='卡住 30 秒就看這頁；更多在 Lab 手冊結尾')
 
     rows = [
-        ('setup.sh 卡 Node 版本',          '本機 Node < 18',            'nvm install 22 && nvm use 22'),
-        ('port 3000 已被占',                '其他服務先佔了',            'PORT=3001 npm start'),
-        ('瀏覽器問後沒反應',                '.env 的 API key 還是 placeholder', '檢查 sk-ant-... 有沒有填'),
-        ('JSON 讀取錯誤',                   '手改 JSON 有語法錯',        'python3 -m json.tool data/xxx.json'),
-        ('問相關問題但沒叫工具',            'docstring 寫太短 / 太含糊', '補「使用情境：當使用者問 X 時」'),
+        ('setup.sh 卡 Node 版本',           '本機 Node < 18',            'nvm install 22 && nvm use 22'),
+        ('port 3000 已被占',                 '其他服務先佔了',            'PORT=3001 npm start'),
+        ('瀏覽器問後沒反應',                 '.env 的 API key 還是 placeholder', '檢查 sk-ant-... 有沒有填'),
+        ('JSON 讀取錯誤',                    '手改 JSON 有語法錯',        'python3 -m json.tool data/xxx.json'),
+        ('問相關問題但 LLM 不叫工具',        'docstring 寫太短 / 太含糊', '補「使用情境：當使用者問 X 時」'),
+        ('npm start 看不到工具列表',         'config.json 的 server key\n'
+                                             '與 FastMCP("...") 名稱對不上', '兩邊改成同一個字串'),
+        ('Could not find tool / 啟動失敗',  'mcp-server-py 沒裝依賴',    'cd mcp-server-py && uv sync'),
     ]
 
     # Header
-    add_rect(s, 0.75, 1.95, 12.0, 0.55, NAVY)
-    add_text(s, 0.95, 2.02, 3.8, 0.4, '症狀',
-             font=FONT_BODY, size=14, color=WHITE, bold=True)
-    add_text(s, 4.9,  2.02, 3.5, 0.4, '原因',
-             font=FONT_BODY, size=14, color=WHITE, bold=True)
-    add_text(s, 8.6,  2.02, 4.2, 0.4, '解法',
-             font=FONT_BODY, size=14, color=WHITE, bold=True)
+    add_rect(s, 0.75, 1.85, 12.0, 0.45, NAVY)
+    add_text(s, 0.95, 1.9, 3.9, 0.35, '症狀',
+             font=FONT_BODY, size=13, color=WHITE, bold=True)
+    add_text(s, 5.0,  1.9, 3.7, 0.35, '原因',
+             font=FONT_BODY, size=13, color=WHITE, bold=True)
+    add_text(s, 8.8,  1.9, 4.0, 0.35, '解法',
+             font=FONT_BODY, size=13, color=WHITE, bold=True)
 
-    y = 2.55
+    y = 2.32
     for sym, cause, fix in rows:
-        add_rect(s, 0.75, y, 12.0, 0.75, CREAM)
-        add_text(s, 0.95, y + 0.17, 3.8, 0.5, sym,
-                 font=FONT_BODY, size=14, color=DARK)
-        add_text(s, 4.9,  y + 0.17, 3.5, 0.5, cause,
-                 font=FONT_BODY, size=13, color=MUTED)
-        add_text(s, 8.6,  y + 0.17, 4.2, 0.5, fix,
-                 font=FONT_CODE, size=13, color=DEEP)
-        y += 0.85
+        add_rect(s, 0.75, y, 12.0, 0.62, CREAM)
+        add_text(s, 0.95, y + 0.1, 3.9, 0.5, sym,
+                 font=FONT_BODY, size=12, color=DARK)
+        add_text(s, 5.0,  y + 0.1, 3.7, 0.5, cause,
+                 font=FONT_BODY, size=11, color=MUTED)
+        add_text(s, 8.8,  y + 0.1, 4.0, 0.5, fix,
+                 font=FONT_CODE, size=11, color=DEEP)
+        y += 0.66
+
+    add_text(s, 0.75, 6.95, 12, 0.4,
+             '卡住超過 3 分鐘：舉手。講師 + 鄰座老師會過來幫你。',
+             font=FONT_BODY, size=12, color=ORANGE, bold=True, italic=True)
+
+
+# ── Slide 13: Show & Tell（交叉展示） ─────────────────────────────
+def slide_13_show_and_tell():
+    s = blank_slide(WHITE)
+    page_chrome(s, 14, TOTAL, '交叉展示 — Show & Tell',
+                subtitle='35–45 min · 看 3 位老師把同一支 mini-project 變成自己的 agent')
+
+    # Left: 講師 prompt
+    add_rect(s, 0.75, 2.0, 6.0, 4.6, CREAM)
+    add_rect(s, 0.75, 2.0, 6.0, 0.55, ORANGE)
+    add_text(s, 1.0, 2.07, 5.8, 0.45, '🎤  請 3 位老師上來（每人 3 分鐘）',
+             font=FONT_TITLE, size=16, color=WHITE, bold=True)
+
+    add_multi(s, 0.95, 2.8, 5.7, 3.7, [
+        dict(text='① 一句話介紹你的領域 + 你放了什麼 JSON',
+             font=FONT_BODY, size=15, color=DARK, bold=True, space_after=4),
+        dict(text='   例：「我教植物分類學，JSON 是 50 種校園樹木」',
+             font=FONT_BODY, size=12, color=MUTED, italic=True, space_after=12),
+        dict(text='② 問你的 agent 一個你自己關心的問題',
+             font=FONT_BODY, size=15, color=DARK, bold=True, space_after=4),
+        dict(text='   例：「校門口那棵開白花的是什麼？」',
+             font=FONT_BODY, size=12, color=MUTED, italic=True, space_after=12),
+        dict(text='③ 講一個你踩到的雷（30 秒）',
+             font=FONT_BODY, size=15, color=DARK, bold=True, space_after=4),
+        dict(text='   docstring 寫太短？JSON 結構太深？編碼錯？',
+             font=FONT_BODY, size=12, color=MUTED, italic=True),
+    ])
+
+    # Right: 為什麼做這件事
+    add_rect(s, 7.0, 2.0, 5.75, 4.6, CREAM)
+    add_rect(s, 7.0, 2.0, 5.75, 0.55, DEEP)
+    add_text(s, 7.2, 2.07, 5.5, 0.45, '💡  為什麼花 10 分鐘做這件事',
+             font=FONT_TITLE, size=16, color=WHITE, bold=True)
+
+    add_multi(s, 7.15, 2.8, 5.55, 3.7, [
+        dict(text='看見落地的多樣性',
+             font=FONT_BODY, size=15, color=DARK, bold=True, space_after=4),
+        dict(text='醫學人文 / 物理 / 語言學 / 行政 FAQ —\n'
+                  '同一支 code 在不同領域的形狀。',
+             font=FONT_BODY, size=12, color=MUTED, space_after=12),
+        dict(text='偷學別人 docstring 寫法',
+             font=FONT_BODY, size=15, color=DARK, bold=True, space_after=4),
+        dict(text='10 個老師有 10 種「使用情境」描述法 —\n'
+                  '看誰的 AI 最聽話。',
+             font=FONT_BODY, size=12, color=MUTED, space_after=12),
+        dict(text='提早為 L2 / L3 預警',
+             font=FONT_BODY, size=15, color=DARK, bold=True, space_after=4),
+        dict(text='別人卡的雷，可能就是你下午自修會踩到的。',
+             font=FONT_BODY, size=12, color=MUTED),
+    ])
 
     add_text(s, 0.75, 6.85, 12, 0.4,
-             '卡住超過 3 分鐘：舉手。講師 + 鄰座老師會過來幫你。',
-             font=FONT_BODY, size=13, color=ORANGE, bold=True, italic=True)
+             '※ 沒上台的老師不是觀眾 — 把對你「最有啟發」的那個 demo 記下來，課後試試',
+             font=FONT_BODY, size=12, color=ORANGE, italic=True, bold=True)
 
 
-# ── Slide 12: 結束 & 鋪陳 Segment 5 ────────────────────────────────
+# ── Slide 15: 結束 & 鋪陳 Segment 5 ────────────────────────────────
 def slide_12_end():
     s = blank_slide(NAVY)
 
@@ -606,9 +830,21 @@ def slide_12_end():
 
 # ── Build ───────────────────────────────────────────────────────────
 BUILDERS = [
-    slide_1_cover, slide_2_outcomes, slide_3_schedule, slide_4_architecture,
-    slide_5_quickstart, slide_6_l1_overview, slide_7_step12, slide_8_step3,
-    slide_9_step4, slide_10_local_endpoint, slide_11_pitfalls, slide_12_end,
+    slide_1_cover,           # 1  Cover
+    slide_2_outcomes,        # 2  本節產出物
+    slide_3_schedule,        # 3  時間配置
+    slide_4_architecture,    # 4  架構回顧
+    slide_4b_agent_loop,     # 5  20 行靈魂（agent loop 真實程式碼）
+    slide_5_pre_workshop,    # 6  行前準備
+    slide_5_quickstart,      # 7  現場 Quick Start
+    slide_10_local_endpoint, # 8  選你的 LLM 路線
+    slide_6_l1_overview,     # 9  L1 Overview
+    slide_7_step12,          # 10 Step 1-2
+    slide_8_step3,           # 11 Step 3 docstring
+    slide_9_step4,           # 12 Step 4 驗證
+    slide_11_pitfalls,       # 13 卡點速查
+    slide_13_show_and_tell,  # 14 Show & Tell
+    slide_12_end,            # 15 結束
 ]
 for b in BUILDERS:
     b()

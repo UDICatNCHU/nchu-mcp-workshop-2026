@@ -18,7 +18,7 @@ This file provides guidance to Claude Code / Claude Agent SDK clients when worki
 
 | 段落 | 時間 | 主題 | 主要檔案 | 狀態 |
 |------|------|------|---------|------|
-| 第一段 | 50 min | **Why MCP** | `01-why-mcp.pptx` | 🔨 製作中 |
+| 第一段 | 50 min | **Why MCP** | `01-why-mcp.pptx` | ✅ 初稿完成（21 張）|
 | 第二段 | 50 min | **How MCP Works** | `02-how-mcp-works.pptx`、`mcp-architecture-animation.html`、`mcp-connection-animation.html` | 🔨 初稿完成 |
 | 休息 | 10 min | | | |
 | 第三段 | 50 min | **Agentic Tool Loop** | `03-agentic-tool-loop.pptx`、`sonnet-flow-running-example.html`、`sonnet-running-example.pptx` | 🔨 初稿完成 |
