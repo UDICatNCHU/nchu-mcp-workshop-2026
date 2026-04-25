@@ -137,11 +137,11 @@ repo root/
 
 ## 其他 CLAUDE.md（本機同步維護參考）
 
-公開讀者可忽略本節。若您是 NCHU 內部開發者，本 repo 通常是 `AiLearningMate/` 底下的 sibling，本機會有另外兩份 CLAUDE.md 各司其職：
+公開讀者可忽略本節。若您是 NCHU 內部開發者，本 repo 通常與 `AiLearningMate/` 並列為 sibling 目錄，本機會有另外兩份 CLAUDE.md 各司其職：
 
-| 路徑 | 焦點 |
+| 路徑（從本 repo 看） | 焦點 |
 |------|------|
-| `../CLAUDE.md` | 本機 root：整個 AiLearningMate monorepo 的總覽（claude-mcp-project + library + 本 repo + mini-project + qwen-coding 的兄弟關係）|
-| `../library/CLAUDE.md` | `library/` sub-project 專屬：Python / uv / FastMCP 環境與工具分類，獨立於本 workshop 維護 |
+| `../AiLearningMate/CLAUDE.md` | NCHU AI 學伴 monorepo 總覽（claude-mcp-project + library + mini-project + qwen-coding）|
+| `../AiLearningMate/library/CLAUDE.md` | `library/` sub-project 專屬：Python / uv / FastMCP 環境與工具分類，獨立於本 workshop 維護 |
 
 三份 CLAUDE.md 各自作為其所在目錄的 Claude Code context；不互相衝突，只是工作 scope 不同。本機工作時可三份並讀，**公開發佈只有本檔**。
