@@ -31,8 +31,15 @@ export class OpenAILLMClient {
     console.log(`[LLM] OpenAI-compatible: ${baseURL} (model=${model})`);
   }
 
-  // 剝除 Gemma 4 的 thinking channel 標記（vLLM 0.19.x parser 尚未處理）
-  // 例：  "<|channel>thought <channel|>實際內容"  →  "實際內容"
+  // 剝除 Gemma 4 的 thinking channel 標記。
+  //
+  // 為何需要？Gemma 4 chat_template 在「不啟用 thinking」時會強制 prepend
+  //   <|channel>thought\n<channel|>
+  // 來把 model 從 "thought" channel 切到 "final" channel（見模型 tokenizer_config）。
+  // vLLM 0.19.x 的 gemma4_tool_parser 暫未 strip 這些 channel 標記，會原封不動
+  // 漏到 message.content。等上游 parser 處理後可拔掉這個 method。
+  //
+  // 範例：  "<|channel>thought<channel|>實際內容"  →  "實際內容"
   _stripThinkingMarkers(text) {
     return text
       .replace(/<\|channel>thought[\s\S]*?<channel\|>/g, '')

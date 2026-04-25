@@ -42,10 +42,11 @@ def search_teachers(keyword: str, limit: int = 5) -> str:
     回傳：符合條件的教授清單 JSON；若無結果則回空 list。
     """
     k = keyword.lower().strip()
+    # 全部用 .get 取值，讓學員把 teachers.json 換成自己資料時即使少欄位也不會 KeyError
     matches = [
         t for t in TEACHERS
-        if k in t["name"].lower()
-        or k in t["title"].lower()
+        if k in t.get("name", "").lower()
+        or k in t.get("title", "").lower()
         or any(k in area.lower() for area in t.get("areas", []))
     ]
     limit = max(1, min(int(limit), 50))

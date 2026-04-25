@@ -27,7 +27,8 @@ def get_weather(city: str) -> str:
     """
     url = f"https://wttr.in/{city}?format=3"
     try:
-        response = httpx.get(url)
+        # 加 timeout 避免 wttr.in 偶爾卡住，連帶卡住整個 MCP server
+        response = httpx.get(url, timeout=10.0)
         response.raise_for_status()
         return response.text.strip()
     except httpx.RequestError as e:

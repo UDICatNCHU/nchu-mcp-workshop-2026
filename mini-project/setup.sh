@@ -95,7 +95,7 @@ for f in config.json backend-node/package.json backend-node/server.js \
     MISSING=$((MISSING+1))
   fi
 done
-[ "$MISSING" -eq 0 ] && ok "11 個核心檔案齊全"
+[ "$MISSING" -eq 0 ] && ok "9 個核心檔案齊全"
 
 # ── 3. API Key 與 .env ──────────────────────────
 section "3/5 API Key 與 .env"

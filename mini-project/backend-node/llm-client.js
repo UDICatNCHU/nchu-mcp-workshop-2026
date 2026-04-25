@@ -9,7 +9,10 @@
 import Anthropic from '@anthropic-ai/sdk';
 
 export class LLMClient {
-  constructor(mcpClient, { model = 'claude-sonnet-4-5', maxTokens = 2048 } = {}) {
+  constructor(mcpClient, {
+    model = process.env.CLAUDE_MODEL ?? 'claude-sonnet-4-5',
+    maxTokens = 2048,
+  } = {}) {
     this.anthropic = new Anthropic(); // 會自動讀 ANTHROPIC_API_KEY 環境變數
     this.mcp = mcpClient;
     this.model = model;

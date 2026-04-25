@@ -1,4 +1,5 @@
 {
+  "_comment": "L3 練習：mcp-server-py/arxiv_tool.py 是已寫好的範例但故意未在此註冊；學員依 docs/labs/L3-call-external-api.md 自己加 entry。",
   "mcpServers": {
     "hello_tool": {
       "command": "uv",
