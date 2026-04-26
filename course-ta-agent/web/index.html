@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="zh-TW">
+<head>
+  <meta charset="utf-8">
+  <title>NCHU MCP Workshop 小助教</title>
+  <style>
+    body { max-width: 760px; margin: 2rem auto; padding: 0 1rem;
+           font-family: system-ui, -apple-system, "PingFang TC", sans-serif; color: #1a1a1a; }
+    h1 { font-size: 1.3rem; color: #1E2761; margin-bottom: 0.2rem; }
+    .subtitle { color: #6B6B6B; font-size: 0.9rem; margin-bottom: 1rem; }
+    #log { border: 1px solid #ddd; border-radius: 8px; padding: 1rem;
+           min-height: 360px; margin-bottom: 1rem; background: #fafafa; }
+    .msg { margin: 0.5rem 0; padding: 0.5rem 0.75rem; border-radius: 6px;
+           white-space: pre-wrap; word-break: break-word; }
+    .user { background: #dbeafe; }
+    .assistant { background: #fff; border: 1px solid #e5e7eb; }
+    .meta { font-size: 0.75rem; color: #888; margin-bottom: 0.2rem; }
+    textarea { width: 100%; min-height: 70px; padding: 0.5rem;
+               border: 1px solid #ccc; border-radius: 6px; font: inherit; box-sizing: border-box; }
+    button { margin-top: 0.5rem; padding: 0.5rem 1.2rem; font-size: 1rem;
+             border: 0; border-radius: 6px; background: #065A82; color: white; cursor: pointer; }
+    button:disabled { background: #9ca3af; cursor: wait; }
+    .examples { font-size: 0.85rem; color: #555; margin-bottom: 1rem; line-height: 1.6; }
+    .examples b { color: #E8793A; }
+    .examples code { background: #eee; padding: 1px 5px; border-radius: 3px; cursor: pointer; }
+    .examples code:hover { background: #fde7d3; }
+  </style>
+</head>
+<body>
+  <h1>🎓 NCHU MCP Workshop 小助教</h1>
+  <div class="subtitle">直接問問題 — 課程概念、Lab 操作、mini-project 程式碼都可以。</div>
+
+  <div class="examples">
+    <b>試試看：</b>
+    <code>RAG 跟 Tool Use 差在哪？</code>
+    <code>L1 Step 3 怎麼改 docstring？</code>
+    <code>llm-client.js 那個 for-loop 在做什麼？</code>
+    <code>Segment 4 講什麼？</code>
+  </div>
+
+  <div id="log"></div>
+  <textarea id="msg" placeholder="例：N×M 痛點是什麼？／ setup.sh 卡住該怎麼辦？"></textarea>
+  <button id="send">送出 (Ctrl/Cmd + Enter)</button>
+
+<script>
+  const log = document.getElementById('log');
+  const msgEl = document.getElementById('msg');
+  const sendBtn = document.getElementById('send');
+  const messages = [];
+
+  function render(role, text) {
+    const div = document.createElement('div');
+    div.className = 'msg ' + role;
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    meta.textContent = role === 'user' ? '你' : 'TA';
+    div.appendChild(meta);
+    div.appendChild(document.createTextNode(text));
+    log.appendChild(div);
+    log.scrollTop = log.scrollHeight;
+  }
+
+  // 範例題目點一下就丟到輸入框
+  document.querySelectorAll('.examples code').forEach(el => {
+    el.addEventListener('click', () => { msgEl.value = el.textContent; msgEl.focus(); });
+  });
+
+  async function send() {
+    const text = msgEl.value.trim();
+    if (!text) return;
+    messages.push({ role: 'user', content: text });
+    render('user', text);
+    msgEl.value = '';
+    sendBtn.disabled = true;
+
+    try {
+      const res = await fetch('/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Request failed');
+
+      messages.length = 0;
+      messages.push(...data.messages);
+
+      render('assistant', data.reply);
+    } catch (e) {
+      render('assistant', '[錯誤] ' + e.message);
+    } finally {
+      sendBtn.disabled = false;
+      msgEl.focus();
+    }
+  }
+
+  sendBtn.addEventListener('click', send);
+  msgEl.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) send();
+  });
+</script>
+</body>
+</html>

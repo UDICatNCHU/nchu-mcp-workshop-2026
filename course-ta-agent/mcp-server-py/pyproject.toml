@@ -1,0 +1,8 @@
+[project]
+name = "course-ta-mcp-server"
+version = "0.1.0"
+description = "Course TA — FastMCP stdio server with 4 tools (segment / search / lab / source)"
+requires-python = ">=3.11"
+dependencies = [
+    "mcp[cli]>=1.8.0",
+]

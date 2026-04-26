@@ -1,0 +1,9 @@
+{
+  "_comment": "course_ta MCP server — 4 支工具：get_segment / search_course / get_lab_handout / read_mini_project_file",
+  "mcpServers": {
+    "course_ta": {
+      "command": "uv",
+      "args": ["--directory", "mcp-server-py", "run", "python", "course_tool.py"]
+    }
+  }
+}

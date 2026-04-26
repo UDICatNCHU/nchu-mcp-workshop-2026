@@ -1,0 +1,17 @@
+# 機敏資訊
+.env
+.env.local
+
+# 依賴與虛擬環境
+node_modules/
+.venv/
+__pycache__/
+*.pyc
+
+# setup.sh 暫存
+/tmp/ta-*.log
+
+# OS / 編輯器
+.DS_Store
+.vscode/
+.idea/
