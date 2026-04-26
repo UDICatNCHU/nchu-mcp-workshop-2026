@@ -78,7 +78,7 @@ cp .env.example .env && vim .env       # 填 ANTHROPIC_API_KEY
 cd backend-node && npm start           # → http://localhost:3001
 ```
 
-⚠ 公開暴露給學員前，務必先做 rate limit + 認證 + `.env` deny-list（詳見 review 結果）。詳見 [`course-ta-agent/README.md`](course-ta-agent/README.md)。
+公開暴露給學員前的安全防護（rate limit、body 上限、沙盒副檔名 allow-list、`.env` deny、symlink 防護、API timeout、error 脫敏）已內建，cloudflared tunnel 對 ~10 人的 workshop 已足夠安全。詳見 [`course-ta-agent/README.md`](course-ta-agent/README.md)。
 
 ## 風格規範
 
@@ -94,5 +94,5 @@ cd backend-node && npm start           # → http://localhost:3001
 - 第三段：`03-agentic-tool-loop.pptx`（20 張）+ sonnet 動畫初稿完成
 - 第四段（動手做）：`04-hands-on-lab.pptx`（**15 張**，code-truth 對齊 mini-project）+ `04-hands-on-lab.md` + 完整可跑 `mini-project/`（28 檔 + 三關 Lab 手冊）
 - 第五段（實務考量收尾）：`05-practical-considerations.md` 完成（四大支柱：規模／品質／模型／成本）
-- **`course-ta-agent/`：完成**（4 工具、~70% reuse mini-project、Boot 驗證 OK；公開部署前需補 rate limit + 認證）
+- **`course-ta-agent/`：完成**（4 工具、~70% reuse mini-project、Boot 驗證 OK，security review 的 CRITICAL/HIGH 全數已修，可直接 cloudflared 暴露給 ~10 人 workshop）
 - `infra/`：Gemma 4 / Qwen 2.5-Coder vLLM 啟動腳本完成

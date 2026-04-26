@@ -9,13 +9,14 @@ export class OpenAILLMClient {
     model = process.env.OPENAI_MODEL ?? 'gemma-4',
     maxTokens = 2048,
     system = undefined,
+    timeout = 60_000,
   } = {}) {
-    this.openai = new OpenAI({ baseURL, apiKey });
+    this.openai = new OpenAI({ baseURL, apiKey, timeout });
     this.mcp = mcpClient;
     this.model = model;
     this.maxTokens = maxTokens;
     this.system = system;
-    console.log(`[LLM] OpenAI-compatible: ${baseURL} (model=${model}${system ? ', system prompt set' : ''})`);
+    console.log(`[LLM] OpenAI-compatible: ${baseURL} (model=${model}, timeout=${timeout}ms${system ? ', system prompt set' : ''})`);
   }
 
   // 剝除 Gemma 4 的 thinking channel 標記（vLLM 的 gemma4_tool_parser 暫未處理）
@@ -39,7 +40,7 @@ export class OpenAILLMClient {
     });
   }
 
-  async chat(messages, { maxIterations = 10 } = {}) {
+  async chat(messages, { maxIterations = 5 } = {}) {
     // 剝掉 client 端送回來的 system 訊息（避免 stale prompt 永遠卡在 history）
     // 也避免惡意 client 自塞 system message 篡改角色
     const history = this._normalize(messages).filter(m => m.role !== 'system');

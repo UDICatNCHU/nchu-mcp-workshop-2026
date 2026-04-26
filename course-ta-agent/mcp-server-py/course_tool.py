@@ -27,6 +27,14 @@ _DATA_DIR = _HERE / "data"
 _REPO_ROOT = _HERE.parent.parent.resolve()           # nchu-mcp-workshop-2026/
 _MINI_PROJECT = (_REPO_ROOT / "mini-project").resolve()
 
+# read_mini_project_file 沙盒設定
+_ALLOWED_EXT = {
+    ".py", ".js", ".ts", ".json", ".md", ".txt",
+    ".html", ".css", ".sh", ".toml", ".yaml", ".yml",
+    "",  # README 之類無副檔名的
+}
+_MAX_FILE_BYTES = 200_000   # 200 KB 上限，避免 uv.lock / lock files DoS
+
 # segment number → list of glob patterns under data/
 _SEGMENT_FILES = {
     1: ["01-*.md"],
@@ -148,23 +156,49 @@ def read_mini_project_file(path: str) -> str:
         path: 相對於 mini-project/ 的路徑，例如 'backend-node/llm-client.js'、
               'mcp-server-py/teachers_tool.py'、'config.json'、'README.md'。
     """
-    rel = path.strip().lstrip("/")
-    target = (_MINI_PROJECT / rel).resolve()
+    # 1. 輸入 sanity（NULL byte / 過長）
+    if "\x00" in path or len(path) > 512:
+        return "Error: 路徑含非法字元或過長"
 
-    # 沙盒：必須在 mini-project/ 底下
+    rel = path.strip().lstrip("/")
+    if not rel:
+        return "Error: path 不能為空"
+
+    # 2. Symlink 防護：每一層 component 都檢查（避免 cool-link/file 走後門）
+    cumulative = _MINI_PROJECT
+    for part in Path(rel).parts:
+        cumulative = cumulative / part
+        if cumulative.is_symlink():
+            return f"Error: 路徑含 symlink：{part}"
+
+    # 3. 沙盒：resolve 後必須仍在 mini-project/ 底下
     try:
+        target = (_MINI_PROJECT / rel).resolve()
         target.relative_to(_MINI_PROJECT)
     except ValueError:
         return f"Error: 路徑超出 mini-project/ 沙盒範圍：{path}"
+
+    # 4. 隱藏檔/目錄（.env / .env.local / .git/ / .vscode/ / .ssh/ ...）一律擋
+    rel_parts = target.relative_to(_MINI_PROJECT).parts
+    if any(p.startswith(".") for p in rel_parts):
+        return "Error: 拒絕讀取隱藏檔或目錄（.env / .git/ 等）"
 
     if not target.exists():
         return f"Error: 檔案不存在：mini-project/{rel}"
     if not target.is_file():
         return f"Error: 不是檔案：mini-project/{rel}"
 
-    # 拒絕 binary（.pptx / 圖片）
-    if target.suffix.lower() in {".pptx", ".png", ".jpg", ".jpeg", ".pdf", ".zip"}:
-        return f"Error: 不支援 binary 檔（{target.suffix}）"
+    # 5. 副檔名 allow-list（取代原本的 binary deny-list — 預設拒絕、明確允許）
+    if target.suffix.lower() not in _ALLOWED_EXT:
+        return (
+            f"Error: 不支援的副檔名 {target.suffix}（"
+            f"允許：py / js / ts / json / md / sh / toml / yaml / html / css / txt）"
+        )
+
+    # 6. 大小上限（防 uv.lock / package-lock.json 灌爆 LLM context）
+    size = target.stat().st_size
+    if size > _MAX_FILE_BYTES:
+        return f"Error: 檔案太大（{size} bytes，上限 {_MAX_FILE_BYTES}）。請指定更具體的檔案"
 
     try:
         content = target.read_text(encoding="utf-8")

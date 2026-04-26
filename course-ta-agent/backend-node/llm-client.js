@@ -11,16 +11,17 @@ export class LLMClient {
     model = process.env.CLAUDE_MODEL ?? 'claude-haiku-4-5',
     maxTokens = 2048,
     system = undefined,
+    timeout = 60_000,         // 單一 API 呼叫上限 60s（保險絲）
   } = {}) {
-    this.anthropic = new Anthropic();
+    this.anthropic = new Anthropic({ timeout });
     this.mcp = mcpClient;
     this.model = model;
     this.maxTokens = maxTokens;
     this.system = system;
-    console.log(`[LLM] Anthropic Claude (model=${model}${system ? ', system prompt set' : ''})`);
+    console.log(`[LLM] Anthropic Claude (model=${model}, timeout=${timeout}ms${system ? ', system prompt set' : ''})`);
   }
 
-  async chat(messages, { maxIterations = 10 } = {}) {
+  async chat(messages, { maxIterations = 5 } = {}) {   // 5 已足夠正常 Q&A，更高只是放大攻擊面
     const history = [...messages];
 
     for (let i = 0; i < maxIterations; i++) {

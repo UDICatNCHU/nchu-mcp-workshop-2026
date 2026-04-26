@@ -7,6 +7,8 @@
 
 import 'dotenv/config';
 import express from 'express';
+import rateLimit from 'express-rate-limit';
+import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -47,21 +49,37 @@ const llm = provider === 'openai'
   : new LLMClient(mcp, { system: SYSTEM_PROMPT });
 
 const app = express();
-app.use(express.json({ limit: '1mb' }));
+app.use(express.json({ limit: '32kb' }));   // chat 訊息很小，1mb 是 DoS 放大器
 app.use(express.static(join(ROOT, 'web')));
+
+// /chat 是會花錢的端點：每 IP 每分鐘 20 次，防 drive-by 拖垮帳單
+app.use('/chat', rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'rate limit exceeded — 一分鐘最多 20 次，請稍候' },
+}));
+
+const MAX_HISTORY = 30;
 
 app.post('/chat', async (req, res) => {
   const { messages } = req.body ?? {};
   if (!Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({ error: 'messages (array) is required' });
   }
+  if (messages.length > MAX_HISTORY) {
+    return res.status(400).json({ error: `history too long (max ${MAX_HISTORY} messages)` });
+  }
 
   try {
     const result = await llm.chat(messages);
     res.json(result);
   } catch (err) {
-    console.error('[chat error]', err);
-    res.status(500).json({ error: err.message });
+    // 不把 err.message 漏給 client（可能含 API key 前綴 / model 名 / 路徑）
+    const id = randomUUID();
+    console.error(`[chat error ${id}]`, err);
+    res.status(500).json({ error: `internal error (id=${id})` });
   }
 });
 
