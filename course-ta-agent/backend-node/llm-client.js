@@ -17,21 +17,42 @@ export class LLMClient {
     this.mcp = mcpClient;
     this.model = model;
     this.maxTokens = maxTokens;
-    this.system = system;
-    console.log(`[LLM] Anthropic Claude (model=${model}, timeout=${timeout}ms${system ? ', system prompt set' : ''})`);
+    // System 用 array 形式 + cache_control，啟用 Anthropic Prompt Caching
+    // → system block 進 cache，5 分鐘 TTL；後續呼叫只付 ~10% 成本
+    this.system = system ? [
+      { type: 'text', text: system, cache_control: { type: 'ephemeral' } },
+    ] : undefined;
+    console.log(`[LLM] Anthropic Claude (model=${model}, timeout=${timeout}ms${system ? ', system + tools cached' : ''})`);
   }
 
   async chat(messages, { maxIterations = 5 } = {}) {   // 5 已足夠正常 Q&A，更高只是放大攻擊面
     const history = [...messages];
 
     for (let i = 0; i < maxIterations; i++) {
+      // 在最後一支 tool 加 cache_control → 整個 tools list 進 cache（一次 breakpoint）
+      const tools = this.mcp.getAnthropicTools();
+      if (tools.length > 0) {
+        tools[tools.length - 1] = {
+          ...tools[tools.length - 1],
+          cache_control: { type: 'ephemeral' },
+        };
+      }
+
       const resp = await this.anthropic.messages.create({
         model: this.model,
         max_tokens: this.maxTokens,
-        tools: this.mcp.getAnthropicTools(),
+        tools,
         messages: history,
         ...(this.system && { system: this.system }),
       });
+
+      // 觀察 cache 命中：cache_read > 0 表示省到錢
+      const u = resp.usage;
+      console.log(
+        `[usage] in=${u.input_tokens} out=${u.output_tokens} ` +
+        `cache_create=${u.cache_creation_input_tokens || 0} ` +
+        `cache_read=${u.cache_read_input_tokens || 0}`,
+      );
 
       history.push({ role: 'assistant', content: resp.content });
 
