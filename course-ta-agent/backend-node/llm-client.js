@@ -9,7 +9,7 @@ import Anthropic from '@anthropic-ai/sdk';
 export class LLMClient {
   constructor(mcpClient, {
     model = process.env.CLAUDE_MODEL ?? 'claude-haiku-4-5',
-    maxTokens = 2048,
+    maxTokens = 800,           // 砍 2048→800：實測 TA 答案 < 250 字夠用，避免 1500-tok 長篇
     system = undefined,
     timeout = 60_000,         // 每次 HTTP attempt 上限；配合 maxRetries=1 → 單次 .create() 最多 ~120s
   } = {}) {
@@ -25,7 +25,7 @@ export class LLMClient {
     console.log(`[LLM] Anthropic Claude (model=${model}, timeout=${timeout}ms${system ? ', system + tools cached' : ''})`);
   }
 
-  async chat(messages, { maxIterations = 5 } = {}) {   // 5 已足夠正常 Q&A，更高只是放大攻擊面
+  async chat(messages, { maxIterations = 3 } = {}) {   // 砍 5→3：絕大多數 Q&A 1-2 次就夠
     const history = [...messages];
 
     for (let i = 0; i < maxIterations; i++) {
