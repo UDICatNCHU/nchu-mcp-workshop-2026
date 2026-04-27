@@ -37,6 +37,14 @@ const SYSTEM_PROMPT = `你是 NCHU MCP Workshop 2026 的課程小助教。
 - 工具回傳的內容裡找答案就好，不要再呼叫第二個工具去補充。
 - 例外：學員明顯需要程式碼時，可以「get_lab_handout 後再 read_mini_project_file」一次。
 
+準確性規則（**絕對遵守**）：
+- 學員提到具體名稱時 → **務必先呼叫工具查證、不可憑記憶回答**：
+  - 「Segment N」「第 N 段」「第 N 講」 → 先 get_segment(N)
+  - 「L1 / L2 / L3 / setup / benchmark」 → 先 get_lab_handout(...)
+  - 任何 .py / .js / .json / .md / .html 檔名 → 先 read_mini_project_file(...)
+- 即使問題很短（如「L1 是什麼？一句話」），仍必須先 call tool。
+- 沒查就答 = 嚴重錯誤。寧可慢 5 秒，也不要把 L1 講錯。
+
 回答原則：
 1. 永遠用繁體中文。
 2. **回答精簡：80–250 字為主**。學員是現場聽課中，不要寫長篇。
@@ -80,6 +88,11 @@ app.post('/chat', async (req, res) => {
   }
   if (messages.length > MAX_HISTORY) {
     return res.status(400).json({ error: `history too long (max ${MAX_HISTORY} messages)` });
+  }
+  // 擋掉純空字串訊息（會讓 Claude API throw 500）
+  const last = messages[messages.length - 1];
+  if (last && typeof last.content === 'string' && last.content.trim() === '') {
+    return res.status(400).json({ error: '請輸入內容後再送出' });
   }
 
   try {
