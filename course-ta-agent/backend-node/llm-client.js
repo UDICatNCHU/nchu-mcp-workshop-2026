@@ -11,9 +11,9 @@ export class LLMClient {
     model = process.env.CLAUDE_MODEL ?? 'claude-haiku-4-5',
     maxTokens = 2048,
     system = undefined,
-    timeout = 60_000,         // 單一 API 呼叫上限 60s（保險絲）
+    timeout = 60_000,         // 每次 HTTP attempt 上限；配合 maxRetries=1 → 單次 .create() 最多 ~120s
   } = {}) {
-    this.anthropic = new Anthropic({ timeout });
+    this.anthropic = new Anthropic({ timeout, maxRetries: 1 });
     this.mcp = mcpClient;
     this.model = model;
     this.maxTokens = maxTokens;

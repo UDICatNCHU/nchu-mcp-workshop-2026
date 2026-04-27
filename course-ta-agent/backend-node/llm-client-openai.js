@@ -9,9 +9,9 @@ export class OpenAILLMClient {
     model = process.env.OPENAI_MODEL ?? 'gemma-4',
     maxTokens = 2048,
     system = undefined,
-    timeout = 60_000,
+    timeout = 60_000,         // 每次 HTTP attempt 上限；配合 maxRetries=1 → 單次 .create() 最多 ~120s
   } = {}) {
-    this.openai = new OpenAI({ baseURL, apiKey, timeout });
+    this.openai = new OpenAI({ baseURL, apiKey, timeout, maxRetries: 1 });
     this.mcp = mcpClient;
     this.model = model;
     this.maxTokens = maxTokens;

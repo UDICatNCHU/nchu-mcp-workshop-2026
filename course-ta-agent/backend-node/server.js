@@ -49,15 +49,20 @@ const llm = provider === 'openai'
   : new LLMClient(mcp, { system: SYSTEM_PROMPT });
 
 const app = express();
+// 信任 cloudflared / 本機 reverse proxy 那一跳，讓 req.ip 拿到真實來源
+app.set('trust proxy', 'loopback');
 app.use(express.json({ limit: '32kb' }));   // chat 訊息很小，1mb 是 DoS 放大器
 app.use(express.static(join(ROOT, 'web')));
 
-// /chat 是會花錢的端點：每 IP 每分鐘 20 次，防 drive-by 拖垮帳單
+// /chat 是會花錢的端點：每真實 client IP 每分鐘 20 次
+// keyGenerator 優先用 cloudflare 的 cf-connecting-ip（cloudflare edge 設、無法偽造）
+// 沒走 cloudflared 時 fall back 到 req.ip（trust proxy 解析後的真實 IP）
 app.use('/chat', rateLimit({
   windowMs: 60 * 1000,
   max: 20,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: (req) => req.headers['cf-connecting-ip'] || req.ip || 'unknown',
   message: { error: 'rate limit exceeded — 一分鐘最多 20 次，請稍候' },
 }));
 
