@@ -8,11 +8,11 @@
 
 | 段落 | 時間 | 主題 | 檔案 |
 |------|------|------|------|
-| 1 | 50 min | Why MCP | `01-why-mcp.pptx` + `01-why-mcp-video.mp4`（3 min 概念長片） |
-| 2 | 50 min | How MCP Works | `02-how-mcp-works.pptx`（30 張，附錄含 REST vs JSON-RPC）+ `02-mcp-connection-video.mp4`（2:17 handshake 影片） |
+| 1 | 50 min | Why MCP | `01-why-mcp.pptx`（17 張）+ `01-why-mcp-video.mp4`（3 min 概念長片） |
+| 2 | 50 min | How MCP Works | `02-how-mcp-works.pptx`（22 張，附錄含 REST vs JSON-RPC）+ `02-mcp-connection-video.mp4`（2:17 handshake 影片） |
 | — | 10 min | 休息 | |
-| 3 | 50 min | Agentic Tool Loop | `03-agentic-tool-loop.pptx` |
-| 4 | 50 min | 動手做（mini-project 實作） | `04-hands-on-lab.pptx`（15 張）+ `04-hands-on-lab.md` + `mini-project/` + `infra/` |
+| 3 | 50 min | Agentic Tool Loop | `03-agentic-tool-loop.pptx`（16 張） |
+| 4 | 50 min | 動手做（mini-project 實作） | `04-hands-on-lab.pptx`（12 張）+ `04-hands-on-lab.md` + `mini-project/` + `infra/` |
 | 5 | 10 min | 實務考量（收尾） | `05-practical-considerations.md` + `haiku-alignment-report.pptx` |
 
 ## Repo 結構
@@ -37,8 +37,10 @@
 │   └── README.md                      # 啟動 + 維護
 ├── infra/                             # 工作坊主辦端：vLLM 啟動腳本
 └── tools/
-    ├── gen-04-slides.py               # 第四段 .pptx 程式化產生
-    ├── refresh-02-slides.py           # 第二段 .pptx 再生（依據 02-mcp-connection-video）
+    ├── lib_newstyle.py                # 共用設計系統（violet 色票、版面 primitives）
+    ├── build-0X-slides.py             # 各段 .pptx 程式化產生（皆 import lib_newstyle）
+    ├── build-haiku-slides.py          # haiku-alignment-report.pptx 產生
+    ├── build-sonnet-slides.py         # sonnet-running-example.pptx 產生
     ├── extract-pptx-to-md.py          # 把 6 個 pptx 抽成 md，餵 course-ta-agent
     └── sync-to-drive.sh               # rclone 同步教材到 Google Drive（需先 rclone config）
 ```
@@ -87,18 +89,18 @@ cd backend-node && npm start           # → http://localhost:3001
 
 ## 風格規範
 
-- 配色：Ocean Gradient — Navy `#1E2761`、Deep Blue `#065A82`、Teal `#1C7293`；橘色 accent `#E8793A`
-- 字型：Arial Black（標題）／ Calibri（內文）／ Consolas（程式碼）
-- 簡報以 `.pptx` 產出（可以 `tools/gen-*-slides.py` / `refresh-*-slides.py` 程式化生成）
+- 配色：Violet primary `#7B5CF5` + Orange / Teal / Pink / Blue accents，搭配 pastel card 底色（`*_PASTEL`）；finale / transition 頁使用 Midnight `#0F1429`
+- 字型：Arial Black（重粗體標題）／ Calibri（內文，附 italic muted 副標）／ Consolas（程式碼，柔化的 syntax highlighting）
+- 設計系統集中於 `tools/lib_newstyle.py`（色票 + `metadata_bar` / `pastel_card` / `circle_number` / `code_block` / `callout_box` 等版面 primitives），各段 `tools/build-0X-slides.py` 共用
 - 動畫展示以 Manim 渲染為 `.mp4`（取代早期的 `.html` 互動動畫，已全數移除）
 - 第四、五段以 `.md` 產出；動手部分以可跑的 `mini-project/` + `course-ta-agent/` 呈現
 
 ## 目前進度
 
-- 第一段：`01-why-mcp.pptx`（21 張）+ `01-why-mcp-video.mp4`（3 min Manim 長片，v2 已 polish）
-- 第二段：`02-how-mcp-works.pptx`（**30 張**，含附錄 REST vs JSON-RPC）+ `02-mcp-connection-video.mp4`（2:17 handshake 影片，v3 已 polish）
-- 第三段：`03-agentic-tool-loop.pptx`（20 張）初稿（HTML 動畫已移除，預計改 Manim 影片）
-- 第四段（動手做）：`04-hands-on-lab.pptx`（**15 張**，code-truth 對齊 mini-project）+ `04-hands-on-lab.md` + 完整可跑 `mini-project/`（28 檔 + 三關 Lab 手冊）
+- 第一段：`01-why-mcp.pptx`（17 張）+ `01-why-mcp-video.mp4`（3 min Manim 長片，v2 已 polish）
+- 第二段：`02-how-mcp-works.pptx`（**22 張**，含附錄 REST vs JSON-RPC）+ `02-mcp-connection-video.mp4`（2:17 handshake 影片，v3 已 polish）
+- 第三段：`03-agentic-tool-loop.pptx`（16 張）初稿（HTML 動畫已移除，預計改 Manim 影片）
+- 第四段（動手做）：`04-hands-on-lab.pptx`（**12 張**，code-truth 對齊 mini-project）+ `04-hands-on-lab.md` + 完整可跑 `mini-project/`（28 檔 + 三關 Lab 手冊）
 - 第五段（實務考量收尾）：`05-practical-considerations.md` 完成（四大支柱：規模／品質／模型／成本，HTML 動畫已移除）
 - **`course-ta-agent/`：完成**（4 工具、~70% reuse mini-project、Boot 驗證 OK，security review 的 CRITICAL/HIGH 全數已修，可直接 cloudflared 暴露給 ~10 人 workshop）
 - `infra/`：Gemma 4 / Qwen 2.5-Coder vLLM 啟動腳本完成

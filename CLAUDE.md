@@ -18,11 +18,11 @@ This file provides guidance to Claude Code / Claude Agent SDK clients when worki
 
 | 段落 | 時間 | 主題 | 主要檔案 | 狀態 |
 |------|------|------|---------|------|
-| 第一段 | 50 min | **Why MCP** | `01-why-mcp.pptx`、`01-why-mcp-video.mp4`（3 min Manim 長片） | ✅ 初稿完成（21 張 + v2 影片）|
-| 第二段 | 50 min | **How MCP Works** | `02-how-mcp-works.pptx`（30 張，含附錄）、`02-mcp-connection-video.mp4`（2:17 Manim 影片） | ✅ v3 完成（pptx 與影片已對齊）|
+| 第一段 | 50 min | **Why MCP** | `01-why-mcp.pptx`、`01-why-mcp-video.mp4`（3 min Manim 長片） | ✅ 初稿完成（17 張 + v2 影片）|
+| 第二段 | 50 min | **How MCP Works** | `02-how-mcp-works.pptx`（22 張，含附錄）、`02-mcp-connection-video.mp4`（2:17 Manim 影片） | ✅ v3 完成（pptx 與影片已對齊）|
 | 休息 | 10 min | | | |
-| 第三段 | 50 min | **Agentic Tool Loop** | `03-agentic-tool-loop.pptx`、`sonnet-running-example.pptx` | 🔨 初稿完成（HTML 動畫已移除，預計改 Manim 影片） |
-| 第四段 | 50 min | **動手做（mini-project 實作）** | `04-hands-on-lab.pptx`、`04-hands-on-lab.md` + `mini-project/` + `infra/` | ✅ 完成 |
+| 第三段 | 50 min | **Agentic Tool Loop** | `03-agentic-tool-loop.pptx`（16 張）、`sonnet-running-example.pptx` | 🔨 初稿完成（HTML 動畫已移除，預計改 Manim 影片） |
+| 第四段 | 50 min | **動手做（mini-project 實作）** | `04-hands-on-lab.pptx`（12 張）、`04-hands-on-lab.md` + `mini-project/` + `infra/` | ✅ 完成 |
 | 第五段 | 10 min | **實務考量（收尾）** | `05-practical-considerations.md`、`haiku-alignment-report.pptx` | ✅ 完成（md 版本，HTML 動畫已移除） |
 
 ## 各段內容規劃
@@ -47,7 +47,7 @@ This file provides guidance to Claude Code / Claude Agent SDK clients when worki
   - Section 04 Client 整合機制（工具清單如何餵給 LLM）
   - 附錄：REST vs JSON-RPC、JSON-RPC 三種訊息類型（給技術 curious 老師，可跳）
 - 搭配影片：`02-mcp-connection-video.mp4`（2:17，Parent / Child / 兩階段握手 checkbox / 第 4 個請求 / frame closure）
-- pptx 重生工具：`tools/refresh-02-slides.py`（程式化生成，避免手動同步影片內容）
+- pptx 重生工具：`tools/build-02-slides.py`（程式化生成，import `lib_newstyle`，避免手動同步影片內容）
 
 ### 第三段：Agentic Tool Loop（50 min）
 - 完整查詢流程 walk-through（使用者提問 → 最終回覆）
@@ -58,7 +58,7 @@ This file provides guidance to Claude Code / Claude Agent SDK clients when worki
 
 ### 第四段：動手做（50 min，hands-on 主場）
 
-現版 `04-hands-on-lab.md` 是學員端 landing page，指向可跑的 `mini-project/`。`04-hands-on-lab.pptx`（12 張）是**現場講師開場用**的投影片，涵蓋本節目標、時間配置、架構回顧、Quick Start、L1 四步驟分解、卡點速查、收尾鋪陳 Segment 5；由 `tools/gen-04-slides.py` 以 python-pptx 自動生成，視覺遵循 repo 的 Ocean Gradient 風格規範。
+現版 `04-hands-on-lab.md` 是學員端 landing page，指向可跑的 `mini-project/`。`04-hands-on-lab.pptx`（12 張）是**現場講師開場用**的投影片，涵蓋本節目標、時間配置、架構回顧、Quick Start、L1 四步驟分解、卡點速查、收尾鋪陳 Segment 5；由 `tools/build-04-slides.py` 以 python-pptx 自動生成（共用 `tools/lib_newstyle.py` 設計系統），視覺遵循 repo 的 violet primary + pastel cards 風格規範。
 
 **作為工作坊的 hands-on 主場**，學員現場完成 L1（換自己領域的 JSON），讓 Segment 1–3 的概念在自己電腦上發生。
 
@@ -117,9 +117,10 @@ git commit -am "data: refresh course content from main"
 
 ## 教材風格規範
 
-- 配色：Ocean Gradient — Navy `#1E2761` / Deep Blue `#065A82` / Teal `#1C7293`；橘色 accent `#E8793A`
-- 字型：Arial Black（標題）／ Calibri（內文）／ Consolas（程式碼）
-- 簡報以 `.pptx` 產出；動畫以單檔 `.html` 產出（可直接投影、無外部依賴）
+- 配色：Violet primary `#7B5CF5`（+ `VIOLET_DEEP #5B3ED9`）搭 Orange / Teal / Pink / Blue accents，所有 card 用對應 `*_PASTEL` 底色；finale / transition 頁使用 Midnight `#0F1429`
+- 字型：Arial Black（重粗體標題）／ Calibri（內文，副標常用 italic muted）／ Consolas（程式碼，柔化的 syntax highlighting）
+- 設計系統集中於 `tools/lib_newstyle.py`（色票 + `metadata_bar` / `pastel_card` / `circle_number` / `code_block` / `callout_box` / `finale` 等版面 primitives）；所有 `tools/build-*-slides.py` 共用，確保跨段視覺一致
+- 簡報以 `.pptx` 產出（由 `build-*-slides.py` 程式化重生，方便迭代）；動畫已全面改用 Manim 渲染為 `.mp4`（早期的 `.html` 互動動畫已全數移除）
 - 技術深度：概念為主，穿插關鍵程式片段；RAG / Tool Use / MCP 比較做深入版（5+ 頁）
 - 每段至少 1 個來自 NCHU AI 學伴 repo 的具體案例（例如 33 工具分類、Haiku alignment、agentic loop）
 - 程式片段以說明「概念」為主，避免逐行解釋；複雜流程用動畫或圖示取代文字
@@ -147,8 +148,12 @@ repo root/
 ├── haiku-alignment-*                  Haiku 優化報告（第五段 §4 引用）
 ├── sonnet-*-example.*                 Sonnet 實例（第三段引用）
 ├── course-notes-draft.md              個人筆記草稿
-├── tools/                             投影片生成腳本
-│   └── gen-04-slides.py               uv run --with python-pptx 產出 04-hands-on-lab.pptx
+├── tools/                             投影片生成腳本（共用 lib_newstyle.py 設計系統）
+│   ├── lib_newstyle.py                色票 + 版面 primitives（violet 主視覺）
+│   ├── build-0X-slides.py             各段 .pptx 程式化產生
+│   ├── build-haiku-slides.py          haiku-alignment-report.pptx 產生
+│   ├── build-sonnet-slides.py         sonnet-running-example.pptx 產生
+│   └── extract-pptx-to-md.py          抽 pptx 成 md 餵 course-ta-agent
 ├── mini-project/                      學員端 hands-on 可跑 code
 │   ├── backend-node/                  Express + LLM client + MCP client
 │   ├── mcp-server-py/                 4 支 FastMCP 工具（hello/teachers/weather/arxiv）
