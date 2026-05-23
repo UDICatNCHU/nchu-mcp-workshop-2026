@@ -38,22 +38,27 @@ def two_cards(s, left, right, y=2.55, h=3.4):
         _multi(s, x + 0.3, y + 0.95, 5.0, h - 1.2, paras)
 
 
-# ── 1. 封面 ──────────────────────────────────────────
+# ── 1. 封面(白底,對齊 01/03 封面慣例)──────────────────
 def build_cover(prs):
-    s = _blank_slide(prs, MIDNIGHT)
-    _rect(s, 0, 3.0, 13.333, 0.06, VIOLET)
-    _text(s, 0.9, 0.7, 11, 0.5, "SEGMENT 4 · HANDS-ON · 70 MIN",
+    s = _blank_slide(prs, BG_WHITE)
+    _rect(s, 0.85, 0.55, 0.55, 0.07, VIOLET)
+    _text(s, 0.85, 0.75, 12, 0.4, "MCP 入門工作坊  ·  第四講",
           font=FONT_BODY, size=15, color=MUTED, bold=True)
-    _text(s, 0.85, 1.9, 11.6, 1.0, "動手做：一個能力的誕生",
-          font=FONT_TITLE, size=50, color=BG_WHITE, bold=True)
-    _text(s, 0.95, 3.3, 11, 0.6,
-          "在你自己的瀏覽器,把一個 AI 能力從「無」變到「有」",
-          font=FONT_BODY, size=22, color=MUTED, italic=True)
-    _text(s, 0.95, 4.65, 11.4, 1.0,
-          "給工具 → 換你的資料 → 自己選工具填參數 → 接外部 API → 撐大資料 → 親手造一支",
-          font=FONT_BODY, size=17, color=VIOLET)
-    _text(s, 0.95, 6.45, 11, 0.5,
-          "本投影片講概念,實作在 Colab 現場做 —— 兩邊交錯進行。",
+    _text(s, 0.85, 2.0, 12, 1.6, "動手做",
+          font=FONT_TITLE, size=80, color=INK, bold=True)
+    _text(s, 0.85, 3.55, 12, 0.7,
+          "一個能力的誕生 —— 把 AI 能力從「無」變到「有」",
+          font=FONT_BODY, size=24, color=VIOLET, bold=True)
+    pastel_card(s, 0.85, 4.35, 8.0, 1.15, accent=VIOLET, fill=VIOLET_PASTEL)
+    _text(s, 1.1, 4.45, 7.5, 0.55, "投影片講概念  ·  Colab 現場做",
+          font=FONT_TITLE, size=22, color=VIOLET_DEEP, bold=True)
+    _text(s, 1.1, 5.0, 7.5, 0.45,
+          "兩邊交錯進行 —— 看到 teal 提示列就切到 Colab",
+          font=FONT_BODY, size=15, color=INK)
+    _text(s, 0.85, 6.3, 8, 0.4, "范耀中  Yao-Chung Fan",
+          font=FONT_BODY, size=18, color=INK, bold=True)
+    _text(s, 0.85, 6.75, 8, 0.4,
+          "國立中興大學  ·  AI 學伴系統實務案例",
           font=FONT_BODY, size=14, color=MUTED)
 
 
@@ -271,29 +276,33 @@ def build_step6(prs):
     page_number(s, 10, TOTAL)
 
 
-# ── 11. 收尾 ─────────────────────────────────────────
+# ── 11. 收尾(白底三卡 + 橋接,對齊 03 結尾慣例)─────────
 def build_finale(prs):
-    s = _blank_slide(prs, MIDNIGHT)
-    _text(s, 0.9, 0.75, 11, 0.5, "W R A P   U P", font=FONT_BODY, size=15,
-          color=MUTED, bold=True)
-    _text(s, 0.85, 1.5, 11.6, 0.9, "你剛剛走完的旅程", font=FONT_TITLE, size=40,
-          color=BG_WHITE, bold=True)
+    s = _blank_slide(prs, BG_WHITE)
+    metadata_bar(s, "收尾", "W R A P   U P", accent=VIOLET)
+    slide_title(s, "你剛剛走完的旅程", y=0.95)
+    slide_subtitle(s, "從「給一支工具」到「親手造一支」—— 六步,一個能力從無到有", y=1.85, size=17)
 
-    rows = [
-        "1 · 給 LLM 工具,看見它連上世界（看得見的 loop）",
-        "2 · 換成你的資料,零邏輯改動（L1）",
-        "3 · 讓它自己選工具、填參數（L2）",
-        "4 · 接真實外部 API（L3）",
-        "5 · 撐住 3018 筆大資料（L4）",
-        "6 · 親手造一支新工具,給 LLM 新能力（L5）",
+    cards = [
+        (VIOLET, VIOLET_PASTEL, "1–2 · 連上你的世界",
+         ["看見 loop 在背後跑", "把它換成你的資料", "（零邏輯改動,L1）"]),
+        (ORANGE, ORANGE_PASTEL, "3–5 · 更真實的工具",
+         ["LLM 自己選工具填參數", "接真實外部 API", "撐住 3018 筆大資料"]),
+        (TEAL, TEAL_PASTEL, "6 · 親手造一支",
+         ["寫一支 LLM 辦不到的工具", "→ 它有了新能力", "這 = MCP 的全部意義"]),
     ]
-    paras = [{"text": r, "font": FONT_BODY, "size": 18, "color": BG_WHITE,
-              "space_after": 9} for r in rows]
-    _multi(s, 1.2, 2.7, 11, 3.3, paras)
+    cw, gap, y, h = 3.85, 0.2, 2.55, 3.4
+    for i, (accent, fill, title, lines) in enumerate(cards):
+        x = 0.85 + i * (cw + gap)
+        pastel_card(s, x, y, cw, h, accent=accent, fill=fill, title=title, title_size=18)
+        _multi(s, x + 0.28, y + 0.95, cw - 0.5, h - 1.2,
+               [{"text": t, "font": FONT_BODY, "size": 14.5,
+                 "color": INK_SOFT, "space_after": 8} for t in lines])
 
-    _text(s, 0.95, 6.35, 11.4, 0.7,
-          "接下來 Segment 5：3 支工具 → 239 支工具,真實上線會遇到的 scale / 品質 / 成本。",
-          font=FONT_BODY, size=15, color=VIOLET)
+    callout_box(s, 0.85, 6.5, 12, 0.6,
+                "從 3 支工具 到 239 支 —— Segment 5：真實上線的 scale / 品質 / 模型選擇 / 成本",
+                accent=VIOLET, fill=VIOLET_PASTEL, icon="▶", size=14)
+    page_number(s, 11, TOTAL)
 
 
 # ── 12–13. 附錄(本機 / 卡點)──────────────────────────
