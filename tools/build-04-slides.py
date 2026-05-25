@@ -108,7 +108,7 @@ def build_howto(prs):
                   "• 講「為什麼」與概念", "• 一步一張,看完就切過去",
                   "• 每張底下 teal 列 = 該切 Colab 了"]),
               (TEAL, TEAL_PASTEL, "Colab（現場做）", [
-                  "• 零安裝,瀏覽器就跑", "• 左側 ☰ 目錄當投影片導覽",
+                  "• 零安裝,瀏覽器就跑", "• 左側 目錄當投影片導覽",
                   "• 程式碼收在標題列,點 ▶ 就執行"]),
               y=2.5, h=2.7)
 
@@ -131,7 +131,7 @@ def build_step0(prs):
         ("① 下載教材 + 裝 Node 20 / uv", CODE_FG),
         ("② 安裝相依套件 (npm + uv sync)", CODE_FG),
         ("③ 設定 Claude API key", CODE_FG),
-        ("   — Colab 左側 🔑 Secrets 設一次,或當場貼上", CODE_COMMENT),
+        ("   — Colab 左側 Secrets 設一次,或當場貼上", CODE_COMMENT),
     ], size=16)
 
     demo_cue(s, "— 第 0 步：跑環境三格(學員同步開 Colab)")
@@ -143,18 +143,29 @@ def build_step1(prs):
     s = _blank_slide(prs, BG_WHITE)
     metadata_bar(s, "第 1 步", "T O O L   =   B R I D G E", accent=VIOLET)
     slide_title(s, "給 LLM 一支工具，它就連上世界了", y=0.95)
-    slide_subtitle(s, "LLM 很會講話,但摸不到外部世界 —— 工具就是那座橋", y=1.85, size=17)
+    slide_subtitle(s, "工具就是那座橋 —— 而且你看得見它在背後呼叫", y=1.85, size=17)
 
-    two_cards(s,
-              (PINK, PINK_PASTEL, "沒有工具", [
-                  "✗ 不知道今天幾號", "✗ 查不到圖書館有沒有某本書",
-                  "✗ 看不到你研究室的資料", "→ 只能用舊知識,或亂猜"]),
-              (TEAL, TEAL_PASTEL, "掛上工具", [
-                  "✓ 自己決定呼叫哪支工具", "✓ 拿到真實資料再回答",
-                  "✓ 你還「看得見」它在背後呼叫", "→ 這就是 agentic loop"]),
-              y=2.5, h=3.0)
+    # 上方:沒工具 vs 掛工具(精簡兩卡)
+    pastel_card(s, 0.85, 2.4, 5.5, 1.55, accent=PINK, fill=PINK_PASTEL, title="沒有工具", title_size=18)
+    _multi(s, 1.15, 3.08, 5.0, 0.8, [
+        {"text": "✗ 不知道今天幾號、查不到館藏", "font": FONT_BODY, "size": 13.5, "color": INK_SOFT, "space_after": 3},
+        {"text": "→ 只能用舊知識,或亂猜", "font": FONT_BODY, "size": 13.5, "color": INK_SOFT}])
+    pastel_card(s, 6.95, 2.4, 5.5, 1.55, accent=TEAL, fill=TEAL_PASTEL, title="掛上工具", title_size=18)
+    _multi(s, 7.25, 3.08, 5.0, 0.8, [
+        {"text": "✓ 自己呼叫工具、拿真實資料再答", "font": FONT_BODY, "size": 13.5, "color": INK_SOFT, "space_after": 3},
+        {"text": "→ 這就是 agentic loop", "font": FONT_BODY, "size": 13.5, "color": INK_SOFT}])
 
-    demo_cue(s, "— 第 1 步：啟動 server → 問一題 → 跑「看得見的 loop」那格")
+    # 真實 artifact:Colab「看得見的 loop」那格會印出的軌跡
+    _text(s, 0.85, 4.15, 12, 0.35, "在 Colab「看得見的 loop」那格,你會親眼看到這串：",
+          font=FONT_BODY, size=13, color=MUTED)
+    code_block(s, 0.85, 4.55, 12, 1.5, [
+        ("# 你問:「資工系深度學習的課,老師有什麼論文?」", CODE_COMMENT),
+        ("[tool_use] search_courses", CODE_FG),
+        ("[tool_use] search_arxiv", CODE_FG),
+        ("(stop_reason: end_turn  →  LLM 整合成一段回覆)", CODE_COMMENT),
+    ], size=13)
+
+    demo_cue(s, "— 第 1 步：跑「啟動 server」→ 問一題 →「看得見的 loop」")
     page_number(s, 5, TOTAL)
 
 
@@ -163,21 +174,30 @@ def build_step2(prs):
     s = _blank_slide(prs, BG_WHITE)
     metadata_bar(s, "第 2 步 · L1", "M A K E   I T   Y O U R S", accent=ORANGE)
     slide_title(s, "把它換成「你的」世界", y=0.95)
-    slide_subtitle(s, "不寫一行新邏輯,只動兩樣東西", y=1.85, size=17)
+    slide_subtitle(s, "不寫一行新邏輯,只動兩樣：換資料 + 改說明書", y=1.85, size=17)
 
-    two_cards(s,
-              (ORANGE, ORANGE_PASTEL, "① 換資料", [
-                  "把英文中心的 JSON", "換成你的：實驗室 / 課程 /",
-                  "研究成果 …任何你想被", "自然語言問的資料"]),
-              (VIOLET, VIOLET_PASTEL, "② 改說明書(docstring)", [
-                  "LLM 靠這段文字決定", "「要不要呼叫這支工具」",
-                  "寫清楚『使用情境』", "—— 它就知道何時該用"]),
-              y=2.5, h=2.7)
+    # ① 換資料(左卡)
+    pastel_card(s, 0.85, 2.45, 4.2, 3.5, accent=ORANGE, fill=ORANGE_PASTEL, title="① 換資料", title_size=19)
+    _multi(s, 1.15, 3.2, 3.7, 2.6, [
+        {"text": "把 data/ 裡的 JSON", "font": FONT_BODY, "size": 14, "color": INK_SOFT, "space_after": 5},
+        {"text": "換成你的領域：", "font": FONT_BODY, "size": 14, "color": INK_SOFT, "space_after": 5},
+        {"text": "實驗室 / 課程 /", "font": FONT_BODY, "size": 14, "color": INK_SOFT, "space_after": 5},
+        {"text": "研究成果 …", "font": FONT_BODY, "size": 14, "color": INK_SOFT, "space_after": 12},
+        {"text": "（0 行 Python）", "font": FONT_BODY, "size": 13, "color": MUTED}])
 
-    callout_box(s, 0.85, 5.45, 12, 0.55,
-                "邏輯一行沒動,只換資料 + 說明書 —— 這就是 MCP 解耦的威力",
-                accent=ORANGE, fill=ORANGE_PASTEL, icon="▶", size=14)
-    demo_cue(s, "— 第 2 步：L1 ①換資料 → ②改 docstring → ③重啟驗證（學員必做）")
+    # ② 真實 docstring 程式碼(右)
+    _text(s, 5.35, 2.45, 7.1, 0.4, "② 改說明書 docstring —— LLM 靠這段決定何時呼叫這支工具",
+          font=FONT_BODY, size=13, color=VIOLET_DEEP, bold=True)
+    code_block(s, 5.35, 2.95, 7.1, 3.0, [
+        ('"""取得 XXX 研究室完整資訊。', CODE_STRING),
+        ("", CODE_FG),
+        ("使用情境:使用者詢問研究方向、", CODE_STRING),
+        ("PI 聯絡方式、招生名額時呼叫。", CODE_STRING),
+        ("", CODE_FG),
+        ('回傳 JSON 字串。"""', CODE_STRING),
+    ], size=14)
+
+    demo_cue(s, "— 第 2 步：L1「換資料」→「改 docstring」→「重啟」（學員必做）")
     page_number(s, 6, TOTAL)
 
 
@@ -256,23 +276,30 @@ def build_step6(prs):
     s = _blank_slide(prs, BG_WHITE)
     metadata_bar(s, "第 6 步 · L5", "B U I L D   Y O U R   O W N", accent=ORANGE)
     slide_title(s, "你親手造一支工具", y=0.95)
-    slide_subtitle(s, "給 LLM 一個它本來絕對辦不到的能力 —— 整趟旅程的高潮", y=1.85, size=17)
+    slide_subtitle(s, "給 LLM 一個它本來辦不到的能力 —— 旅程的高潮", y=1.85, size=17)
 
-    two_cards(s,
-              (PINK, PINK_PASTEL, "① 先問（它辦不到）", [
-                  "問：「今天星期幾？」",
-                  "✗ LLM 沒有「現在」的概念",
-                  "✗ 沒有時鐘 → 說不知道或亂猜"]),
-              (TEAL, TEAL_PASTEL, "② 造工具 → 再問", [
-                  "寫一支 get_today()（用 datetime）",
-                  "✓ 重啟後再問 → 它答對了",
-                  "✓ 你剛給了 AI 一個新能力"]),
-              y=2.5, h=2.7)
+    # ① 先問失敗(左卡)
+    pastel_card(s, 0.85, 2.45, 4.2, 3.5, accent=PINK, fill=PINK_PASTEL, title="① 先問,它辦不到", title_size=18)
+    _multi(s, 1.15, 3.2, 3.7, 2.6, [
+        {"text": "問：「今天星期幾？」", "font": FONT_BODY, "size": 14, "color": INK_SOFT, "space_after": 8},
+        {"text": "✗ LLM 沒有「現在」概念", "font": FONT_BODY, "size": 13.5, "color": INK_SOFT, "space_after": 5},
+        {"text": "✗ 沒時鐘 → 亂猜或說不知道", "font": FONT_BODY, "size": 13.5, "color": INK_SOFT}])
 
-    callout_box(s, 0.85, 5.45, 12, 0.55,
-                "這 = MCP 的全部意義。Segment 1 問「怎麼讓 LLM 連上真實世界」,答案就是你剛做的這件事",
-                accent=ORANGE, fill=ORANGE_PASTEL, icon="▶", size=14)
-    demo_cue(s, "— 第 6 步：L5 ①先問失敗 → ②寫 today_tool → ③再問答對")
+    # ② 學員親手寫的真實工具(右)
+    _text(s, 5.35, 2.45, 7.1, 0.4, "② 你親手寫這幾行 → 它就有了新能力",
+          font=FONT_BODY, size=13.5, color=TEAL_DEEP, bold=True)
+    code_block(s, 5.35, 2.95, 7.1, 3.0, [
+        ("@mcp.tool()", CODE_ORANGE),
+        ("def get_today() -> str:", CODE_FG),
+        ('    """回傳今天日期與星期幾。', CODE_STRING),
+        ('    使用情境:問今天幾號/星期幾時呼叫。"""', CODE_STRING),
+        ("    t = datetime.date.today()", CODE_FG),
+        ('    wd = "一二三四五六日"[t.weekday()]', CODE_FG),
+        ('    return json.dumps(', CODE_FG),
+        ('        {"今天": t.isoformat(), "星期": wd})', CODE_FG),
+    ], size=12.5)
+
+    demo_cue(s, "— 第 6 步：「先問失敗」→「造 today_tool」→ 再問答對 = MCP 的全部意義")
     page_number(s, 10, TOTAL)
 
 
@@ -335,7 +362,7 @@ def build_appendix_trouble(prs):
     items = [
         ("聊天介面打不開 / 卡住", "跑 Colab 附錄 A：cloudflared 開公開網址（新分頁）"),
         ("EADDRINUSE / port 被佔", "重跑「啟動 server」那格即可（會自動殺舊的再起）"),
-        ("key 格式錯", "確認以 sk-ant- 開頭;或用 Colab 🔑 Secrets 設 ANTHROPIC_API_KEY"),
+        ("key 格式錯", "確認以 sk-ant- 開頭;或用 Colab Secrets 設 ANTHROPIC_API_KEY"),
         ("改了檔卻沒生效", "回去重跑「啟動 / 重啟 server」那格讓改動套用"),
     ]
     y = 2.55
