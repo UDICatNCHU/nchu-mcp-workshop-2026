@@ -1,6 +1,6 @@
 # NCHU MCP Workshop 2026
 
-三小時 MCP 入門工作坊教材，受眾為大專院校教師（非必要為資工背景）。
+給大專院校教師的三小時 MCP 入門工作坊 —— 不需要資工背景，跟著做就能擁有一個自己領域的 AI 助理。
 
 所有內容以 [NCHU AI 學伴](https://eduxplore.nlpnchu.org) 作為實際案例。
 
